@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stage Call — Staff Party Sign-Up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  html, body{height:100%;}
+  :root{
+    --ink:#151022;
+    --curtain-1:#1c1230;
+    --curtain-2:#2a1240;
+    --velvet:#5c1730;
+    --velvet-light:#7a2440;
+    --gold:#f2b705;
+    --gold-dim:#c99a2e;
+    --cream:#f4ecd8;
+    --lilac:#b6a6c9;
+    --green:#3fae6a;
+    --red:#d84f4f;
+    --card:#241733;
+    --card-line:#3c2a52;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:0;background:transparent;}
+  .app{
+    min-height:100%;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(242,183,5,0.14), transparent 60%),
+      linear-gradient(180deg, var(--curtain-1), var(--curtain-2));
+    font-family:'Inter',sans-serif;
+    color:var(--cream);
+    padding:36px 18px 60px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .marquee{
+    text-align:center;
+    margin-bottom:30px;
+  }
+  .eyebrow{
+    font-family:'Bebas Neue',sans-serif;
+    letter-spacing:0.35em;
+    font-size:13px;
+    color:var(--gold);
+    margin:0 0 6px;
+  }
+  .title{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:44px;
+    letter-spacing:0.03em;
+    margin:0;
+    line-height:1;
+    text-shadow:0 0 30px rgba(242,183,5,0.25);
+  }
+  .subtitle{
+    font-size:14px;
+    color:var(--lilac);
+    max-width:420px;
+    margin:12px auto 0;
+    line-height:1.5;
+  }
+
+  /* Ticket card */
+  .ticket{
+    position:relative;
+    width:100%;
+    max-width:460px;
+    background:var(--card);
+    border:1px solid var(--card-line);
+    border-radius:18px;
+    padding:30px 26px 26px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+  .ticket::before,.ticket::after{
+    content:"";
+    position:absolute;
+    width:22px;height:22px;
+    background:var(--curtain-2);
+    border-radius:50%;
+    top:50%;
+    transform:translateY(-50%);
+  }
+  .ticket::before{left:-11px;}
+  .ticket::after{right:-11px;}
+  .perf-line{
+    border-top:2px dashed var(--card-line);
+    margin:22px -26px;
+  }
+
+  .field{margin-bottom:16px;}
+  label{
+    display:block;
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--lilac);
+    margin-bottom:6px;
+    font-weight:600;
+  }
+  input[type=text], textarea{
+    width:100%;
+    background:var(--ink);
+    border:1px solid var(--card-line);
+    border-radius:8px;
+    padding:11px 12px;
+    color:var(--cream);
+    font-family:'Inter',sans-serif;
+    font-size:14.5px;
+    outline:none;
+    transition:border-color .15s;
+  }
+  input[type=text]:focus, textarea:focus{
+    border-color:var(--gold);
+  }
+  textarea{resize:vertical;min-height:70px;}
+
+  .toggle-row{display:flex;gap:10px;}
+  .toggle-btn{
+    flex:1;
+    padding:13px 0;
+    border-radius:9px;
+    border:1.5px solid var(--card-line);
+    background:var(--ink);
+    color:var(--lilac);
+    font-family:'Bebas Neue',sans-serif;
+    letter-spacing:0.08em;
+    font-size:16px;
+    cursor:pointer;
+    transition:all .15s;
+  }
+  .toggle-btn:hover{border-color:var(--gold-dim);}
+  .toggle-btn.active-yes{background:var(--green);border-color:var(--green);color:#0c1f14;}
+  .toggle-btn.active-no{background:var(--red);border-color:var(--red);color:#2b0d0d;}
+
+  .activity-wrap{
+    max-height:0;
+    overflow:hidden;
+    opacity:0;
+    transition:max-height .3s ease, opacity .3s ease, margin .3s ease;
+  }
+  .activity-wrap.open{
+    max-height:220px;
+    opacity:1;
+    margin-bottom:16px;
+  }
+
+  .submit-btn{
+    width:100%;
+    padding:14px 0;
+    border-radius:9px;
+    border:none;
+    background:var(--gold);
+    color:#241100;
+    font-family:'Bebas Neue',sans-serif;
+    font-size:19px;
+    letter-spacing:0.06em;
+    cursor:pointer;
+    margin-top:6px;
+    transition:transform .12s, box-shadow .12s;
+  }
+  .submit-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px -6px rgba(242,183,5,0.5);}
+  .submit-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;box-shadow:none;}
+
+  .hint{font-size:12px;color:var(--lilac);margin-top:10px;text-align:center;line-height:1.5;}
+  .error{color:#ff9b9b;font-size:12.5px;margin-top:6px;}
+
+  /* Confirmation state */
+  .confirm{
+    text-align:center;
+    padding:10px 0 4px;
+  }
+  .confirm .stamp{
+    display:inline-block;
+    font-family:'Bebas Neue',sans-serif;
+    font-size:15px;
+    letter-spacing:0.2em;
+    color:#0c1f14;
+    background:var(--green);
+    padding:6px 16px;
+    border-radius:999px;
+    margin-bottom:14px;
+    transform:rotate(-3deg);
+  }
+  .confirm .stamp.no{background:var(--lilac);color:var(--ink);}
+  .confirm h2{font-family:'Bebas Neue',sans-serif;font-size:26px;margin:0 0 8px;letter-spacing:0.02em;}
+  .confirm p{color:var(--lilac);font-size:13.5px;margin:0 0 18px;line-height:1.6;}
+  .receipt{
+    text-align:left;
+    background:var(--ink);
+    border:1px solid var(--card-line);
+    border-radius:10px;
+    padding:14px 16px;
+    font-size:13.5px;
+    margin-bottom:18px;
+  }
+  .receipt div{display:flex;justify-content:space-between;padding:4px 0;gap:12px;}
+  .receipt span:first-child{color:var(--lilac);}
+  .receipt span:last-child{text-align:right;font-weight:600;}
+  .edit-btn{
+    background:none;
+    border:1px solid var(--card-line);
+    color:var(--cream);
+    padding:10px 0;
+    width:100%;
+    border-radius:9px;
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    cursor:pointer;
+  }
+  .edit-btn:hover{border-color:var(--gold-dim);}
+
+  /* Footer link to dashboard */
+  .foot-link{
+    margin-top:22px;
+    font-size:12px;
+    color:var(--lilac);
+    opacity:0.7;
+    background:none;
+    border:none;
+    text-decoration:underline;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  .foot-link:hover{opacity:1;color:var(--gold);}
+
+  /* Dashboard */
+  .dash{width:100%;max-width:640px;}
+  .dash-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px;}
+  .dash-head .title{font-size:32px;}
+  .back-link{background:none;border:none;color:var(--gold);font-size:12.5px;cursor:pointer;text-decoration:underline;font-family:'Inter',sans-serif;}
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px;}
+  .stat{
+    background:var(--card);
+    border:1px solid var(--card-line);
+    border-radius:12px;
+    padding:16px 10px;
+    text-align:center;
+  }
+  .stat .num{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--gold);line-height:1;}
+  .stat .lbl{font-size:11px;color:var(--lilac);letter-spacing:0.08em;text-transform:uppercase;margin-top:4px;}
+  .list{display:flex;flex-direction:column;gap:10px;}
+  .row-card{
+    background:var(--card);
+    border:1px solid var(--card-line);
+    border-radius:12px;
+    padding:14px 16px;
+    display:flex;
+    justify-content:space-between;
+    gap:14px;
+  }
+  .row-card .who{font-weight:600;font-size:14.5px;}
+  .row-card .dept{color:var(--lilac);font-size:12.5px;margin-top:2px;}
+  .row-card .act{font-size:13px;color:var(--cream);margin-top:6px;line-height:1.4;}
+  .row-card .badge{
+    align-self:flex-start;
+    font-family:'Bebas Neue',sans-serif;
+    font-size:12px;
+    letter-spacing:0.08em;
+    padding:4px 10px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+  .badge.yes{background:rgba(63,174,106,0.18);color:#6fe39a;}
+  .badge.no{background:rgba(182,166,201,0.15);color:var(--lilac);}
+  .empty{
+    text-align:center;
+    color:var(--lilac);
+    font-size:13.5px;
+    padding:40px 0;
+  }
+  .refresh-btn{
+    display:block;
+    margin:18px auto 0;
+    background:none;
+    border:1px solid var(--card-line);
+    color:var(--cream);
+    padding:9px 20px;
+    border-radius:999px;
+    font-size:12.5px;
+    cursor:pointer;
+  }
+  .refresh-btn:hover{border-color:var(--gold-dim);}
+  .gate{
+    max-width:340px;
+    margin:0 auto;
+    text-align:center;
+  }
+  .gate p{color:var(--lilac);font-size:13px;margin-bottom:14px;}
+  .gate .submit-btn{margin-top:10px;}
+  .loading{text-align:center;color:var(--lilac);font-size:13px;padding:30px 0;}
+
+  @media (max-width:420px){
+    .title{font-size:36px;}
+    .stat-row{grid-template-columns:repeat(3,1fr);gap:8px;}
+    .stat .num{font-size:26px;}
+  }
+</style>
+<!-- Firebase SDK (compat build — simplest for a plain HTML page, no build step needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<div class="app" id="app"></div>
+
+<script>
+  // ====== PASTE YOUR FIREBASE CONFIG HERE (Step 3 of the setup guide) ======
+  const firebaseConfig = {
+    apiKey: "AIzaSyBWB7748Ji41hfTJX7GiZjVkDzoHb9dekA",
+    authDomain: "staff-annual-party-survey.firebaseapp.com",
+    projectId: "staff-annual-party-survey",
+    storageBucket: "staff-annual-party-survey.firebasestorage.app",
+    messagingSenderId: "163567560084",
+    appId: "1:163567560084:web:d143894bd77202e3051b81"
+  };
+  // ===========================================================================
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+</script>
+
+<script>
+(function(){
+  const app = document.getElementById('app');
+  let view = 'form'; // form | confirm | gate | dash
+  let editingKey = null;
+  let lastEntry = null;
+  let volunteerChoice = null;
+  const ORG_CODE = 'stagecall';
+  let gateUnlocked = false;
+  const storageReady = firebaseConfig.apiKey !== "YOUR_API_KEY";
+
+  if(!storageReady){
+    document.getElementById('app').innerHTML = `
+      <div class="marquee">
+        <p class="eyebrow">Setup needed</p>
+        <h1 class="title">STAGE CALL</h1>
+        <p class="subtitle">This page hasn't been connected to Firebase yet. Paste your Firebase config into the script near the top of the HTML file (see the setup guide) and redeploy.</p>
+      </div>
+    `;
+    return;
+  }
+
+  function slugify(s){
+    return (s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+  }
+
+  function render(){
+    if(view==='form') renderForm();
+    else if(view==='confirm') renderConfirm();
+    else if(view==='gate') renderGate();
+    else if(view==='dash') renderDash();
+  }
+
+  function renderForm(){
+    app.innerHTML = `
+      <div class="marquee">
+        <p class="eyebrow">Annual Staff Party</p>
+        <h1 class="title">STAGE CALL</h1>
+        <p class="subtitle">Fancy a moment in the spotlight? Let us know if you're performing this year — sing, dance, joke, or wow us your way.</p>
+      </div>
+      <div class="ticket">
+        <div class="field">
+          <label for="f-name">Full name</label>
+          <input type="text" id="f-name" placeholder="e.g. Sophea Chan" value="${lastEntry?lastEntry.name:''}" />
+        </div>
+        <div class="field">
+          <label for="f-dept">Department</label>
+          <input type="text" id="f-dept" placeholder="e.g. Marketing" value="${lastEntry?lastEntry.department:''}" />
+        </div>
+        <div class="perf-line"></div>
+        <div class="field">
+          <label>Will you perform on stage?</label>
+          <div class="toggle-row">
+            <button type="button" class="toggle-btn" id="btn-yes">YES</button>
+            <button type="button" class="toggle-btn" id="btn-no">NO</button>
+          </div>
+        </div>
+        <div class="activity-wrap" id="activity-wrap">
+          <div class="field">
+            <label for="f-activity">What will you perform?</label>
+            <textarea id="f-activity" placeholder="e.g. Solo song — Khmer pop ballad">${lastEntry?lastEntry.activity||'':''}</textarea>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-contact">Contact (email or ext.) — optional</label>
+          <input type="text" id="f-contact" placeholder="e.g. sophea@company.com" value="${lastEntry?lastEntry.contact||'':''}" />
+        </div>
+        <div id="err" class="error" style="display:none;"></div>
+        <button class="submit-btn" id="submit-btn">Reserve My Spot</button>
+        <p class="hint">Your answer is saved individually — no one else needs to fill this out at the same time as you.</p>
+      </div>
+      <button class="foot-link" id="dash-link">Organizer dashboard →</button>
+    `;
+
+    if(volunteerChoice==='yes') setChoice('yes', false);
+    if(volunteerChoice==='no') setChoice('no', false);
+
+    document.getElementById('btn-yes').onclick = ()=>setChoice('yes', true);
+    document.getElementById('btn-no').onclick = ()=>setChoice('no', true);
+    document.getElementById('submit-btn').onclick = submitForm;
+    document.getElementById('dash-link').onclick = ()=>{ view = gateUnlocked ? 'dash' : 'gate'; render(); if(gateUnlocked) loadDash(); };
+  }
+
+  function setChoice(choice, userInitiated){
+    volunteerChoice = choice;
+    const yesBtn = document.getElementById('btn-yes');
+    const noBtn = document.getElementById('btn-no');
+    const wrap = document.getElementById('activity-wrap');
+    yesBtn.classList.toggle('active-yes', choice==='yes');
+    noBtn.classList.toggle('active-no', choice==='no');
+    if(choice==='yes'){ wrap.classList.add('open'); }
+    else { wrap.classList.remove('open'); }
+  }
+
+  async function submitForm(){
+    const name = document.getElementById('f-name').value.trim();
+    const dept = document.getElementById('f-dept').value.trim();
+    const activity = document.getElementById('f-activity').value.trim();
+    const contact = document.getElementById('f-contact').value.trim();
+    const errEl = document.getElementById('err');
+    errEl.style.display = 'none';
+
+    if(!name){ errEl.textContent = 'Please enter your full name.'; errEl.style.display='block'; return; }
+    if(!dept){ errEl.textContent = 'Please enter your department.'; errEl.style.display='block'; return; }
+    if(!volunteerChoice){ errEl.textContent = 'Please choose YES or NO.'; errEl.style.display='block'; return; }
+    if(volunteerChoice==='yes' && !activity){ errEl.textContent = "Let us know what you'll perform."; errEl.style.display='block'; return; }
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const key = editingKey || (slugify(name) + '-' + slugify(dept));
+    const entry = {
+      name, department: dept,
+      volunteer: volunteerChoice,
+      activity: volunteerChoice==='yes' ? activity : '',
+      contact,
+      timestamp: new Date().toISOString()
+    };
+
+    try{
+      await db.collection('submissions').doc(key).set(entry);
+      lastEntry = entry;
+      editingKey = key;
+      view = 'confirm';
+      render();
+    }catch(e){
+      errEl.textContent = 'Could not save right now — please try again.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Reserve My Spot';
+    }
+  }
+
+  function renderConfirm(){
+    const e = lastEntry;
+    const isYes = e.volunteer === 'yes';
+    app.innerHTML = `
+      <div class="marquee">
+        <p class="eyebrow">Annual Staff Party</p>
+        <h1 class="title">STAGE CALL</h1>
+      </div>
+      <div class="ticket">
+        <div class="confirm">
+          <span class="stamp ${isYes?'':'no'}">${isYes ? "YOU'RE ON THE LINE-UP" : 'RESPONSE RECORDED'}</span>
+          <h2>${isYes ? 'See you on stage!' : 'Thanks for letting us know'}</h2>
+          <p>${isYes ? 'Your slot is noted. The organizing committee will follow up with run-of-show details closer to the event.' : 'No worries — enjoy the party as our very appreciative audience.'}</p>
+        </div>
+        <div class="receipt">
+          <div><span>Name</span><span>${escapeHtml(e.name)}</span></div>
+          <div><span>Department</span><span>${escapeHtml(e.department)}</span></div>
+          <div><span>Performing</span><span>${isYes?'Yes':'No'}</span></div>
+          ${isYes ? `<div><span>Activity</span><span>${escapeHtml(e.activity)}</span></div>` : ''}
+        </div>
+        <button class="edit-btn" id="edit-btn">Edit my response</button>
+      </div>
+      <button class="foot-link" id="dash-link">Organizer dashboard →</button>
+    `;
+    document.getElementById('edit-btn').onclick = ()=>{ view='form'; render(); };
+    document.getElementById('dash-link').onclick = ()=>{ view = gateUnlocked ? 'dash' : 'gate'; render(); if(gateUnlocked) loadDash(); };
+  }
+
+  function renderGate(){
+    app.innerHTML = `
+      <div class="marquee">
+        <p class="eyebrow">Organizer Access</p>
+        <h1 class="title">LINE-UP DASHBOARD</h1>
+      </div>
+      <div class="ticket gate">
+        <p>Enter the organizer passcode to view all responses.</p>
+        <div class="field">
+          <input type="text" id="code" placeholder="Passcode" />
+        </div>
+        <div id="gate-err" class="error" style="display:none;">Incorrect passcode.</div>
+        <button class="submit-btn" id="unlock-btn">Unlock Dashboard</button>
+      </div>
+      <button class="foot-link" id="back-btn">← Back to sign-up form</button>
+    `;
+    document.getElementById('unlock-btn').onclick = ()=>{
+      const code = document.getElementById('code').value.trim();
+      if(code === ORG_CODE){
+        gateUnlocked = true;
+        view = 'dash';
+        render();
+        loadDash();
+      } else {
+        document.getElementById('gate-err').style.display = 'block';
+      }
+    };
+    document.getElementById('back-btn').onclick = ()=>{ view = lastEntry ? 'confirm' : 'form'; render(); };
+  }
+
+  function renderDash(){
+    app.innerHTML = `
+      <div class="dash">
+        <div class="dash-head">
+          <h1 class="title">LINE-UP DASHBOARD</h1>
+          <button class="back-link" id="back-btn">← Back to form</button>
+        </div>
+        <div class="stat-row" id="stat-row">
+          <div class="stat"><div class="num">–</div><div class="lbl">Total</div></div>
+          <div class="stat"><div class="num">–</div><div class="lbl">Performing</div></div>
+          <div class="stat"><div class="num">–</div><div class="lbl">Not performing</div></div>
+        </div>
+        <div id="list-area"><div class="loading">Loading responses…</div></div>
+        <button class="refresh-btn" id="refresh-btn">Refresh</button>
+      </div>
+    `;
+    document.getElementById('back-btn').onclick = ()=>{ view = lastEntry ? 'confirm' : 'form'; render(); };
+    document.getElementById('refresh-btn').onclick = loadDash;
+  }
+
+  async function loadDash(){
+    const listArea = document.getElementById('list-area');
+    const statRow = document.getElementById('stat-row');
+    if(!listArea) return;
+    try{
+      const snapshot = await db.collection('submissions').get();
+      const entries = snapshot.docs.map(doc => doc.data());
+      entries.sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
+      const yesCount = entries.filter(e=>e.volunteer==='yes').length;
+      const noCount = entries.filter(e=>e.volunteer==='no').length;
+
+      statRow.innerHTML = `
+        <div class="stat"><div class="num">${entries.length}</div><div class="lbl">Total</div></div>
+        <div class="stat"><div class="num">${yesCount}</div><div class="lbl">Performing</div></div>
+        <div class="stat"><div class="num">${noCount}</div><div class="lbl">Not performing</div></div>
+      `;
+
+      if(entries.length===0){
+        listArea.innerHTML = '<div class="empty">No responses yet. Once staff submit the sign-up form, they will appear here.</div>';
+        return;
+      }
+
+      listArea.innerHTML = '<div class="list">' + entries.map(e=>`
+        <div class="row-card">
+          <div>
+            <div class="who">${escapeHtml(e.name)}</div>
+            <div class="dept">${escapeHtml(e.department)}${e.contact ? ' · ' + escapeHtml(e.contact) : ''}</div>
+            ${e.volunteer==='yes' ? `<div class="act">🎤 ${escapeHtml(e.activity)}</div>` : ''}
+          </div>
+          <span class="badge ${e.volunteer}">${e.volunteer==='yes'?'YES':'NO'}</span>
+        </div>
+      `).join('') + '</div>';
+    }catch(e){
+      listArea.innerHTML = '<div class="empty">Could not load responses. Try refreshing.</div>';
+    }
+  }
+
+  function escapeHtml(s){
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
