@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stage Call — Staff Party Sign-Up</title>
+<title>Staff Performance — Staff Party Sign-Up</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
@@ -144,7 +144,7 @@
     transition:max-height .3s ease, opacity .3s ease, margin .3s ease;
   }
   .activity-wrap.open{
-    max-height:220px;
+    max-height:360px;
     opacity:1;
     margin-bottom:16px;
   }
@@ -257,7 +257,6 @@
   .row-card .dept{color:var(--lilac);font-size:12.5px;margin-top:2px;}
   .row-card .act{font-size:13px;color:var(--cream);margin-top:6px;line-height:1.4;}
   .row-card .badge{
-    align-self:flex-start;
     font-family:'Bebas Neue',sans-serif;
     font-size:12px;
     letter-spacing:0.08em;
@@ -267,6 +266,21 @@
   }
   .badge.yes{background:rgba(63,174,106,0.18);color:#6fe39a;}
   .badge.no{background:rgba(182,166,201,0.15);color:var(--lilac);}
+  .row-card .equip{font-size:12px;color:var(--lilac);margin-top:4px;line-height:1.4;}
+  .row-actions{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;}
+  .delete-btn{
+    background:none;
+    border:1px solid var(--card-line);
+    color:#ff9b9b;
+    font-size:11px;
+    padding:4px 10px;
+    border-radius:999px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+    white-space:nowrap;
+  }
+  .delete-btn:hover{border-color:var(--red);background:rgba(216,79,79,0.12);}
+  .delete-btn:disabled{opacity:0.5;cursor:not-allowed;}
   .empty{
     text-align:center;
     color:var(--lilac);
@@ -311,12 +325,12 @@
 <script>
   // ====== PASTE YOUR FIREBASE CONFIG HERE (Step 3 of the setup guide) ======
   const firebaseConfig = {
-    apiKey: "AIzaSyBWB7748Ji41hfTJX7GiZjVkDzoHb9dekA",
-    authDomain: "staff-annual-party-survey.firebaseapp.com",
-    projectId: "staff-annual-party-survey",
-    storageBucket: "staff-annual-party-survey.firebasestorage.app",
-    messagingSenderId: "163567560084",
-    appId: "1:163567560084:web:d143894bd77202e3051b81"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
   };
   // ===========================================================================
 
@@ -339,7 +353,7 @@
     document.getElementById('app').innerHTML = `
       <div class="marquee">
         <p class="eyebrow">Setup needed</p>
-        <h1 class="title">STAGE CALL</h1>
+        <h1 class="title">STAFF PERFORMANCE</h1>
         <p class="subtitle">This page hasn't been connected to Firebase yet. Paste your Firebase config into the script near the top of the HTML file (see the setup guide) and redeploy.</p>
       </div>
     `;
@@ -361,7 +375,7 @@
     app.innerHTML = `
       <div class="marquee">
         <p class="eyebrow">Annual Staff Party</p>
-        <h1 class="title">STAGE CALL</h1>
+        <h1 class="title">STAFF PERFORMANCE</h1>
         <p class="subtitle">Fancy a moment in the spotlight? Let us know if you're performing this year — sing, dance, joke, or wow us your way.</p>
       </div>
       <div class="ticket">
@@ -386,6 +400,10 @@
             <label for="f-activity">What will you perform?</label>
             <textarea id="f-activity" placeholder="e.g. Solo song — Khmer pop ballad">${lastEntry?lastEntry.activity||'':''}</textarea>
           </div>
+          <div class="field">
+            <label for="f-equipment">Equipment needed (optional)</label>
+            <textarea id="f-equipment" placeholder="e.g. Wireless microphone, sound system, speaker">${lastEntry?lastEntry.equipment||'':''}</textarea>
+          </div>
         </div>
         <div class="field">
           <label for="f-contact">Contact (email or ext.) — optional</label>
@@ -405,6 +423,7 @@
     document.getElementById('btn-no').onclick = ()=>setChoice('no', true);
     document.getElementById('submit-btn').onclick = submitForm;
     document.getElementById('dash-link').onclick = ()=>{ view = gateUnlocked ? 'dash' : 'gate'; render(); if(gateUnlocked) loadDash(); };
+    updateSubmitLabel();
   }
 
   function setChoice(choice, userInitiated){
@@ -416,12 +435,24 @@
     noBtn.classList.toggle('active-no', choice==='no');
     if(choice==='yes'){ wrap.classList.add('open'); }
     else { wrap.classList.remove('open'); }
+    updateSubmitLabel();
+  }
+
+  function updateSubmitLabel(){
+    const btn = document.getElementById('submit-btn');
+    if(!btn || btn.disabled) return;
+    if(editingKey && lastEntry && lastEntry.volunteer === 'yes' && volunteerChoice === 'no'){
+      btn.textContent = 'Change My Decision';
+    } else {
+      btn.textContent = 'Reserve My Spot';
+    }
   }
 
   async function submitForm(){
     const name = document.getElementById('f-name').value.trim();
     const dept = document.getElementById('f-dept').value.trim();
     const activity = document.getElementById('f-activity').value.trim();
+    const equipment = document.getElementById('f-equipment').value.trim();
     const contact = document.getElementById('f-contact').value.trim();
     const errEl = document.getElementById('err');
     errEl.style.display = 'none';
@@ -440,6 +471,7 @@
       name, department: dept,
       volunteer: volunteerChoice,
       activity: volunteerChoice==='yes' ? activity : '',
+      equipment: volunteerChoice==='yes' ? equipment : '',
       contact,
       timestamp: new Date().toISOString()
     };
@@ -454,7 +486,7 @@
       errEl.textContent = 'Could not save right now — please try again.';
       errEl.style.display = 'block';
       btn.disabled = false;
-      btn.textContent = 'Reserve My Spot';
+      updateSubmitLabel();
     }
   }
 
@@ -464,7 +496,7 @@
     app.innerHTML = `
       <div class="marquee">
         <p class="eyebrow">Annual Staff Party</p>
-        <h1 class="title">STAGE CALL</h1>
+        <h1 class="title">STAFF PERFORMANCE</h1>
       </div>
       <div class="ticket">
         <div class="confirm">
@@ -477,12 +509,13 @@
           <div><span>Department</span><span>${escapeHtml(e.department)}</span></div>
           <div><span>Performing</span><span>${isYes?'Yes':'No'}</span></div>
           ${isYes ? `<div><span>Activity</span><span>${escapeHtml(e.activity)}</span></div>` : ''}
+          ${isYes && e.equipment ? `<div><span>Equipment</span><span>${escapeHtml(e.equipment)}</span></div>` : ''}
         </div>
         <button class="edit-btn" id="edit-btn">Edit my response</button>
       </div>
       <button class="foot-link" id="dash-link">Organizer dashboard →</button>
     `;
-    document.getElementById('edit-btn').onclick = ()=>{ view='form'; render(); };
+    document.getElementById('edit-btn').onclick = ()=>{ volunteerChoice = e.volunteer; view='form'; render(); };
     document.getElementById('dash-link').onclick = ()=>{ view = gateUnlocked ? 'dash' : 'gate'; render(); if(gateUnlocked) loadDash(); };
   }
 
@@ -542,16 +575,9 @@
     if(!listArea) return;
     try{
       const snapshot = await db.collection('submissions').get();
-      const entries = snapshot.docs.map(doc => doc.data());
+      const entries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       entries.sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
-      const yesCount = entries.filter(e=>e.volunteer==='yes').length;
-      const noCount = entries.filter(e=>e.volunteer==='no').length;
-
-      statRow.innerHTML = `
-        <div class="stat"><div class="num">${entries.length}</div><div class="lbl">Total</div></div>
-        <div class="stat"><div class="num">${yesCount}</div><div class="lbl">Performing</div></div>
-        <div class="stat"><div class="num">${noCount}</div><div class="lbl">Not performing</div></div>
-      `;
+      renderDashStats(entries);
 
       if(entries.length===0){
         listArea.innerHTML = '<div class="empty">No responses yet. Once staff submit the sign-up form, they will appear here.</div>';
@@ -564,12 +590,53 @@
             <div class="who">${escapeHtml(e.name)}</div>
             <div class="dept">${escapeHtml(e.department)}${e.contact ? ' · ' + escapeHtml(e.contact) : ''}</div>
             ${e.volunteer==='yes' ? `<div class="act">🎤 ${escapeHtml(e.activity)}</div>` : ''}
+            ${e.volunteer==='yes' && e.equipment ? `<div class="equip">🎛️ ${escapeHtml(e.equipment)}</div>` : ''}
           </div>
-          <span class="badge ${e.volunteer}">${e.volunteer==='yes'?'YES':'NO'}</span>
+          <div class="row-actions">
+            <span class="badge ${e.volunteer}">${e.volunteer==='yes'?'YES':'NO'}</span>
+            <button class="delete-btn" data-id="${e.id}">Delete</button>
+          </div>
         </div>
       `).join('') + '</div>';
+
+      listArea.querySelectorAll('.delete-btn').forEach(btn=>{
+        btn.onclick = ()=>deleteEntry(btn.getAttribute('data-id'), btn, entries);
+      });
     }catch(e){
       listArea.innerHTML = '<div class="empty">Could not load responses. Try refreshing.</div>';
+    }
+  }
+
+  function renderDashStats(entries){
+    const statRow = document.getElementById('stat-row');
+    if(!statRow) return;
+    const yesCount = entries.filter(e=>e.volunteer==='yes').length;
+    const noCount = entries.filter(e=>e.volunteer==='no').length;
+    statRow.innerHTML = `
+      <div class="stat"><div class="num">${entries.length}</div><div class="lbl">Total</div></div>
+      <div class="stat"><div class="num">${yesCount}</div><div class="lbl">Performing</div></div>
+      <div class="stat"><div class="num">${noCount}</div><div class="lbl">Not performing</div></div>
+    `;
+  }
+
+  async function deleteEntry(id, btn, entries){
+    if(!confirm('Delete this response? This cannot be undone.')) return;
+    btn.disabled = true;
+    btn.textContent = '...';
+    try{
+      await db.collection('submissions').doc(id).delete();
+      const remaining = entries.filter(e => e.id !== id);
+      const row = btn.closest('.row-card');
+      if(row) row.remove();
+      renderDashStats(remaining);
+      const listArea = document.getElementById('list-area');
+      if(remaining.length===0 && listArea){
+        listArea.innerHTML = '<div class="empty">No responses yet. Once staff submit the sign-up form, they will appear here.</div>';
+      }
+    }catch(e){
+      alert('Could not delete this entry. Check that your Firestore rules allow delete.');
+      btn.disabled = false;
+      btn.textContent = 'Delete';
     }
   }
 
