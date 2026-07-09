@@ -51,29 +51,42 @@
   /* Top bar (shown when signed in) */
   .topbar{
     width:100%;
-    max-width:480px;
+    max-width:420px;
     display:flex;
     justify-content:space-between;
     align-items:center;
     margin-bottom:28px;
     font-size:13px;
     color:var(--muted);
+    gap:10px;
   }
-  .topbar .who{display:flex;align-items:center;gap:8px;}
+  .topbar .who{display:flex;align-items:center;gap:8px;min-width:0;}
+  .topbar .who span{
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px;
+  }
   .avatar{
     width:24px;height:24px;border-radius:50%;
     background:var(--accent-soft);color:var(--accent);
     display:flex;align-items:center;justify-content:center;
     font-size:11px;font-weight:700;
-    overflow:hidden;
+    overflow:hidden;flex-shrink:0;
   }
   .avatar img{width:100%;height:100%;object-fit:cover;}
   .signout-link{
     background:none;border:none;color:var(--muted);
     font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;
-    text-decoration:none;
+    text-decoration:none;flex-shrink:0;
+    padding:6px 0;
   }
   .signout-link:hover{color:var(--ink);}
+
+  .event-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--accent-soft);color:var(--accent);
+    font-size:12.5px;font-weight:600;
+    padding:7px 14px;border-radius:999px;
+    margin-bottom:16px;
+  }
 
   .header{text-align:center;margin-bottom:28px;max-width:420px;}
   .eyebrow{
@@ -125,7 +138,7 @@
     padding:11px 12px;
     color:var(--ink);
     font-family:'Inter',sans-serif;
-    font-size:14.5px;
+    font-size:16px;
     outline:none;
     transition:border-color .15s, box-shadow .15s;
   }
@@ -269,9 +282,19 @@
   }
   @keyframes spin{to{transform:rotate(360deg);}}
 
+  button{-webkit-tap-highlight-color:transparent;}
+  .toggle-btn, .submit-btn, .edit-btn, .google-btn, .delete-btn, .refresh-btn{min-height:44px;}
+
   @media (max-width:420px){
+    .app{padding:32px 16px 48px;}
     .title{font-size:24px;}
-    .card{padding:22px;}
+    .card{padding:20px;}
+    .topbar .who span{max-width:130px;}
+    .stat-row{gap:8px;}
+    .stat{padding:14px 6px;}
+    .stat .num{font-size:22px;}
+    .row-card{flex-direction:column;}
+    .row-actions{flex-direction:row;align-items:center;justify-content:space-between;width:100%;}
   }
 </style>
 </head>
@@ -292,6 +315,10 @@
 
   // ====== SET YOUR COMPANY EMAIL DOMAIN HERE (used to restrict sign-in) ======
   const COMPANY_DOMAIN = "experteducation.com.au";
+
+  // Event details shown to staff
+  const EVENT_DATE_LABEL = "11 December 2026 · 5:00 PM – 9:00 PM";
+  const CHANGE_DEADLINE_LABEL = "27 November 2026";
 
   // Organizer dashboard passcode
   const ORG_CODE = "stagecall";
@@ -338,6 +365,10 @@
     return src.slice(0,2).toUpperCase();
   }
 
+  function eventChipHtml(){
+    return `<div class="event-chip">📅 ${escapeHtml(EVENT_DATE_LABEL)}</div>`;
+  }
+
   function topbarHtml(){
     if(!currentUser) return '';
     const photo = currentUser.photoURL
@@ -378,6 +409,7 @@
       <div class="header">
         <p class="eyebrow">Annual Staff Party</p>
         <h1 class="title">Staff Performance Sign-Up</h1>
+        ${eventChipHtml()}
         <p class="subtitle">Sign in with your work Google account to let us know if you'll be performing this year.</p>
       </div>
       <div class="card">
@@ -430,6 +462,7 @@
       <div class="header">
         <p class="eyebrow">Annual Staff Party</p>
         <h1 class="title">Staff Performance</h1>
+        ${eventChipHtml()}
         <p class="subtitle">Let us know if you'd like to perform this year — sing, dance, comedy, or anything else you'd like to share.</p>
       </div>
       <div class="card">
@@ -461,7 +494,7 @@
         </div>
         <div id="err" class="error" style="display:none;"></div>
         <button class="submit-btn" id="submit-btn">Reserve My Spot</button>
-        <p class="hint">Signed in as ${escapeHtml(currentUser.email)} — your response is saved to your account only.</p>
+        <p class="hint">Signed in as ${escapeHtml(currentUser.email)} — your response is saved to your account only. You can change your decision anytime up until ${escapeHtml(CHANGE_DEADLINE_LABEL)} (2 weeks before the event).</p>
       </div>
       <button class="foot-link" id="dash-link">Organizer dashboard →</button>
     `;
@@ -492,7 +525,7 @@
     const btn = document.getElementById('submit-btn');
     if(!btn || btn.disabled) return;
     if(editingKey && lastEntry && lastEntry.volunteer === 'yes' && volunteerChoice === 'no'){
-      btn.textContent = 'Change My Decision';
+      btn.textContent = 'Finalize My Decision';
     } else {
       btn.textContent = 'Reserve My Spot';
     }
@@ -546,6 +579,7 @@
       <div class="header">
         <p class="eyebrow">Annual Staff Party</p>
         <h1 class="title">Staff Performance</h1>
+        ${eventChipHtml()}
       </div>
       <div class="card">
         <div class="confirm-top">
@@ -561,6 +595,7 @@
           ${isYes && e.equipment ? `<div><span>Equipment</span><span>${escapeHtml(e.equipment)}</span></div>` : ''}
         </div>
         <button class="edit-btn" id="edit-btn">Edit my response</button>
+        <p class="hint">You can change your decision anytime up until ${escapeHtml(CHANGE_DEADLINE_LABEL)} (2 weeks before the event).</p>
       </div>
       <button class="foot-link" id="dash-link">Organizer dashboard →</button>
     `;
