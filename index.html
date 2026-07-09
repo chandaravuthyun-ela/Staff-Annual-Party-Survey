@@ -345,6 +345,8 @@
   let gateUnlocked = false;
   let dashEntries = [];
   let dashFilter = 'all'; // all | yes | no
+  let signInError = null; // set when redirect sign-in fails; shown once on the sign-in screen
+  let authResolved = false; // flips true the first time onAuthStateChanged fires
 
   const storageReady = firebaseConfig.apiKey !== "YOUR_API_KEY";
   if(!storageReady){
@@ -412,6 +414,10 @@
   }
 
   function renderSignIn(){
+    const errorHtml = signInError
+      ? `<div class="error-box">${escapeHtml(signInError)}</div>`
+      : '';
+    signInError = null; // show it once, then clear so it doesn't linger on re-renders
     app.innerHTML = `
       <div class="header">
         <p class="eyebrow">Annual Staff Party</p>
@@ -420,6 +426,7 @@
         <p class="subtitle">Sign in with your work Google account to let us know if you'll be performing this year.</p>
       </div>
       <div class="card">
+        ${errorHtml}
         <button class="google-btn" id="signin-btn">
           <svg class="google-icon" viewBox="0 0 48 48">
             <path fill="#4F46E5" d="M24 9.5c3.4 0 6.4 1.2 8.8 3.5l6.5-6.5C35.3 2.7 30 0.5 24 0.5 14.9 0.5 7.1 5.7 3.3 13.3l7.6 5.9C12.7 13.1 17.9 9.5 24 9.5z" opacity="0.9"/>
@@ -438,17 +445,32 @@
   async function signIn(){
     const btn = document.getElementById('signin-btn');
     btn.disabled = true;
+    btn.textContent = 'Redirecting to Google…';
     const provider = new firebase.auth.GoogleAuthProvider();
     // Note: Google's "hd" hint only supports one domain at a time, so with two
     // allowed domains we skip the hint and rely on the check after sign-in below.
     // Using redirect (not popup) — far more reliable on iOS Safari and mobile
     // browsers in general, since popups are often blocked or interrupted there.
     try{
+      // Explicitly request LOCAL persistence, with a fallback to SESSION.
+      // Safari (Private Browsing, or "Prevent Cross-Site Tracking" in some
+      // configurations) can throw here because it restricts IndexedDB. If we
+      // don't catch this, the redirect can go out fine but never resolve
+      // when the browser comes back — which looks exactly like "stuck on
+      // Continue with Google".
+      try{
+        await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+      }catch(persistErr){
+        console.warn('LOCAL persistence unavailable, falling back to SESSION:', persistErr);
+        await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+      }
       await auth.signInWithRedirect(provider);
       // Page navigates away here; code below rarely runs.
     }catch(e){
-      btn.disabled = false;
-      app.innerHTML += `<p class="error" style="text-align:center;margin-top:14px;">Sign-in failed to start. Please try again.</p>`;
+      console.error('signInWithRedirect failed to start:', e);
+      signInError = 'Sign-in failed to start. Please try again. If this keeps happening on iPhone/iPad, check Settings → Safari → and make sure "Prevent Cross-Site Tracking" is off for this site, and that you are not in Private Browsing.';
+      view = 'signin';
+      render();
     }
   }
 
@@ -747,17 +769,33 @@
   }
 
   // ---- Auth state ----
+
+  // Safety net: if neither getRedirectResult() nor onAuthStateChanged() ever
+  // settles (e.g. IndexedDB blocked by Safari, or the redirect handshake got
+  // dropped), don't leave the user staring at an endless spinner forever.
+  const stuckTimer = setTimeout(()=>{
+    if(!authResolved && view === 'loading'){
+      signInError = 'Taking longer than expected to sign you in. Please try again — if this keeps happening on iPhone/iPad Safari, check that "Prevent Cross-Site Tracking" is off for this site in Settings → Safari, and that you\'re not in Private Browsing.';
+      view = 'signin';
+      render();
+    }
+  }, 8000);
+
   auth.getRedirectResult().catch((error)=>{
     console.error('Redirect sign-in error:', error);
-    view = 'signin';
-    render();
+    authResolved = true;
+    clearTimeout(stuckTimer);
     const msg = error && error.code === 'auth/account-exists-with-different-credential'
       ? 'This email is already linked to a different sign-in method.'
       : 'Sign-in did not complete. Please try again — if this keeps happening, try a different browser or disable "Prevent Cross-Site Tracking" in Safari settings for this site.';
-    app.innerHTML += `<p class="error" style="text-align:center;margin-top:14px;">${escapeHtml(msg)}</p>`;
+    signInError = msg;
+    view = 'signin';
+    render();
   });
 
   auth.onAuthStateChanged(async (user)=>{
+    authResolved = true;
+    clearTimeout(stuckTimer);
     if(!user){
       currentUser = null;
       view = 'signin';
