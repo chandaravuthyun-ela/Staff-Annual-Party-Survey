@@ -365,6 +365,7 @@
   let authResolved = false; // flips true the first time onAuthStateChanged fires
   let gisInitialized = false;
   let gisLoadAttempts = 0;
+  let inAppBrowserDismissed = false;
 
   const storageReady = firebaseConfig.apiKey !== "YOUR_API_KEY";
   const gisReady = GOOGLE_CLIENT_ID !== "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com";
@@ -442,7 +443,68 @@
     app.innerHTML = `<div class="loading"><div class="spinner"></div>Loading…</div>`;
   }
 
+  // Detects when the page is opened inside an app's built-in browser
+  // (Telegram, WhatsApp, Instagram, Facebook, LINE, etc.) rather than the
+  // phone's real browser. Google deliberately blocks/breaks its sign-in flow
+  // inside these embedded browsers as a security measure — no code on our
+  // side can make Google's sign-in work reliably there. The only real fix is
+  // opening the link in Safari/Chrome directly, so we detect this and guide
+  // the person to do that instead of letting them hit a silent dead end.
+  function detectInAppBrowser(){
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    // Signatures added by well-known apps' in-app browsers.
+    const knownInApp = /FBAN|FBAV|Instagram|Line\/|MicroMessenger|Telegram|Twitter|Snapchat|Pinterest|LinkedInApp/i.test(ua);
+    // iOS heuristic: real Safari (and Safari-based views) include "Safari" in
+    // the UA string; most in-app WKWebViews strip it out.
+    const iosLikelyWebView = isIOS && !/Safari/i.test(ua);
+    return knownInApp || iosLikelyWebView;
+  }
+
+  function renderInAppBrowserWarning(){
+    const link = window.location.href;
+    app.innerHTML = `
+      <div class="header">
+        <p class="eyebrow">Annual Staff Party</p>
+        <h1 class="title">Staff Performance Sign-Up</h1>
+        ${eventChipHtml()}
+      </div>
+      <div class="card">
+        <div class="error-box">You're viewing this inside an app's built-in browser (e.g. Telegram, WhatsApp, Instagram). Google sign-in doesn't work reliably there — please open this page in Safari or Chrome instead.</div>
+        <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.6;margin:0 0 14px;">
+          Tap the <strong>••• (more)</strong> menu or <strong>share icon</strong> at the top or bottom of this screen and choose <strong>"Open in Safari"</strong> (or "Open in Browser"). Or copy the link below and paste it into Safari/Chrome directly.
+        </p>
+        <div class="field">
+          <input type="text" id="copy-link-input" value="${escapeHtml(link)}" readonly onclick="this.select();" />
+        </div>
+        <button class="submit-btn" id="copy-link-btn">Copy link</button>
+        <button class="foot-link" id="proceed-anyway-btn" style="display:block;margin:16px auto 0;">Try signing in here anyway →</button>
+      </div>
+    `;
+    document.getElementById('copy-link-btn').onclick = async ()=>{
+      const btn = document.getElementById('copy-link-btn');
+      try{
+        await navigator.clipboard.writeText(link);
+        btn.textContent = 'Copied!';
+        setTimeout(()=>{ btn.textContent = 'Copy link'; }, 2000);
+      }catch(e){
+        document.getElementById('copy-link-input').select();
+        document.execCommand('copy');
+        btn.textContent = 'Copied!';
+        setTimeout(()=>{ btn.textContent = 'Copy link'; }, 2000);
+      }
+    };
+    document.getElementById('proceed-anyway-btn').onclick = ()=>{
+      inAppBrowserDismissed = true;
+      renderSignIn();
+    };
+  }
+
   function renderSignIn(){
+    if(!inAppBrowserDismissed && detectInAppBrowser()){
+      renderInAppBrowserWarning();
+      return;
+    }
     const errorHtml = signInError
       ? `<div class="error-box">${escapeHtml(signInError)}</div>`
       : '';
