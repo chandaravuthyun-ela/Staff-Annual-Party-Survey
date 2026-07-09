@@ -235,9 +235,14 @@
   .back-link{background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;}
   .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
   .stat{
-    background:var(--surface);border:1px solid var(--border);
+    background:var(--surface);border:1.5px solid var(--border);
     border-radius:12px;padding:16px 10px;text-align:center;
+    cursor:pointer;font-family:'Inter',sans-serif;
+    transition:border-color .15s, box-shadow .15s, background .15s;
   }
+  .stat:hover{border-color:var(--muted);}
+  .stat.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent);}
+  .stat.active .num, .stat.active .lbl{color:var(--accent);}
   .stat .num{font-size:26px;font-weight:800;color:var(--ink);line-height:1;letter-spacing:-0.02em;}
   .stat .lbl{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:6px;}
   .list{display:flex;flex-direction:column;gap:10px;}
@@ -338,6 +343,8 @@
   let lastEntry = null;
   let volunteerChoice = null;
   let gateUnlocked = false;
+  let dashEntries = [];
+  let dashFilter = 'all'; // all | yes | no
 
   const storageReady = firebaseConfig.apiKey !== "YOUR_API_KEY";
   if(!storageReady){
@@ -494,7 +501,7 @@
         </div>
         <div id="err" class="error" style="display:none;"></div>
         <button class="submit-btn" id="submit-btn">Reserve My Spot</button>
-        <p class="hint">Signed in as ${escapeHtml(currentUser.email)} — your response is saved to your account only. You can change your decision anytime up until ${escapeHtml(CHANGE_DEADLINE_LABEL)} (2 weeks before the event).</p>
+        <p class="hint">Signed in as ${escapeHtml(currentUser.email)} — your response is saved to your account only. You can change your decision 2 weeks before the event.</p>
       </div>
       <button class="foot-link" id="dash-link">Organizer dashboard →</button>
     `;
@@ -524,11 +531,7 @@
   function updateSubmitLabel(){
     const btn = document.getElementById('submit-btn');
     if(!btn || btn.disabled) return;
-    if(editingKey && lastEntry && lastEntry.volunteer === 'yes' && volunteerChoice === 'no'){
-      btn.textContent = 'Finalize My Decision';
-    } else {
-      btn.textContent = 'Reserve My Spot';
-    }
+    btn.textContent = volunteerChoice === 'no' ? 'Finalize My Decision' : 'Reserve My Spot';
   }
 
   async function submitForm(){
@@ -595,7 +598,7 @@
           ${isYes && e.equipment ? `<div><span>Equipment</span><span>${escapeHtml(e.equipment)}</span></div>` : ''}
         </div>
         <button class="edit-btn" id="edit-btn">Edit my response</button>
-        <p class="hint">You can change your decision anytime up until ${escapeHtml(CHANGE_DEADLINE_LABEL)} (2 weeks before the event).</p>
+        <p class="hint">You can change your decision 2 weeks before the event.</p>
       </div>
       <button class="foot-link" id="dash-link">Organizer dashboard →</button>
     `;
@@ -636,6 +639,7 @@
   }
 
   function renderDash(){
+    dashFilter = 'all';
     app.innerHTML = topbarHtml() + `
       <div class="dash">
         <div class="dash-head">
@@ -661,64 +665,76 @@
     if(!listArea) return;
     try{
       const snapshot = await db.collection('submissions').get();
-      const entries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      entries.sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
-      renderDashStats(entries);
-
-      if(entries.length===0){
-        listArea.innerHTML = '<div class="empty">No responses yet. Once staff submit the sign-up form, they will appear here.</div>';
-        return;
-      }
-
-      listArea.innerHTML = '<div class="list">' + entries.map(e=>`
-        <div class="row-card">
-          <div>
-            <div class="who">${escapeHtml(e.name)}</div>
-            <div class="dept">${escapeHtml(e.department)} · ${escapeHtml(e.email||'')}</div>
-            ${e.volunteer==='yes' ? `<div class="act">${escapeHtml(e.activity)}</div>` : ''}
-            ${e.volunteer==='yes' && e.equipment ? `<div class="equip">Equipment: ${escapeHtml(e.equipment)}</div>` : ''}
-          </div>
-          <div class="row-actions">
-            <span class="badge ${e.volunteer}">${e.volunteer==='yes'?'YES':'NO'}</span>
-            <button class="delete-btn" data-id="${e.id}">Delete</button>
-          </div>
-        </div>
-      `).join('') + '</div>';
-
-      listArea.querySelectorAll('.delete-btn').forEach(btn=>{
-        btn.onclick = ()=>deleteEntry(btn.getAttribute('data-id'), btn, entries);
-      });
+      dashEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      dashEntries.sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
+      renderDashStats();
+      renderDashList();
     }catch(e){
       listArea.innerHTML = '<div class="empty">Could not load responses. Try refreshing.</div>';
     }
   }
 
-  function renderDashStats(entries){
+  function renderDashStats(){
     const statRow = document.getElementById('stat-row');
     if(!statRow) return;
-    const yesCount = entries.filter(e=>e.volunteer==='yes').length;
-    const noCount = entries.filter(e=>e.volunteer==='no').length;
+    const yesCount = dashEntries.filter(e=>e.volunteer==='yes').length;
+    const noCount = dashEntries.filter(e=>e.volunteer==='no').length;
     statRow.innerHTML = `
-      <div class="stat"><div class="num">${entries.length}</div><div class="lbl">Total</div></div>
-      <div class="stat"><div class="num">${yesCount}</div><div class="lbl">Performing</div></div>
-      <div class="stat"><div class="num">${noCount}</div><div class="lbl">Not performing</div></div>
+      <div class="stat ${dashFilter==='all'?'active':''}" data-filter="all"><div class="num">${dashEntries.length}</div><div class="lbl">Total</div></div>
+      <div class="stat ${dashFilter==='yes'?'active':''}" data-filter="yes"><div class="num">${yesCount}</div><div class="lbl">Performing</div></div>
+      <div class="stat ${dashFilter==='no'?'active':''}" data-filter="no"><div class="num">${noCount}</div><div class="lbl">Not performing</div></div>
     `;
+    statRow.querySelectorAll('.stat').forEach(el=>{
+      el.onclick = ()=>{
+        dashFilter = el.getAttribute('data-filter');
+        renderDashStats();
+        renderDashList();
+      };
+    });
   }
 
-  async function deleteEntry(id, btn, entries){
+  function renderDashList(){
+    const listArea = document.getElementById('list-area');
+    if(!listArea) return;
+    const entries = dashFilter==='all' ? dashEntries : dashEntries.filter(e=>e.volunteer===dashFilter);
+
+    if(entries.length===0){
+      const emptyLabel = dashFilter==='all' ? 'No responses yet. Once staff submit the sign-up form, they will appear here.'
+        : dashFilter==='yes' ? 'No one has signed up to perform yet.'
+        : 'No one has responded "No" yet.';
+      listArea.innerHTML = `<div class="empty">${emptyLabel}</div>`;
+      return;
+    }
+
+    listArea.innerHTML = '<div class="list">' + entries.map(e=>`
+      <div class="row-card">
+        <div>
+          <div class="who">${escapeHtml(e.name)}</div>
+          <div class="dept">${escapeHtml(e.department)} · ${escapeHtml(e.email||'')}</div>
+          ${e.volunteer==='yes' ? `<div class="act">${escapeHtml(e.activity)}</div>` : ''}
+          ${e.volunteer==='yes' && e.equipment ? `<div class="equip">Equipment: ${escapeHtml(e.equipment)}</div>` : ''}
+        </div>
+        <div class="row-actions">
+          <span class="badge ${e.volunteer}">${e.volunteer==='yes'?'YES':'NO'}</span>
+          <button class="delete-btn" data-id="${e.id}">Delete</button>
+        </div>
+      </div>
+    `).join('') + '</div>';
+
+    listArea.querySelectorAll('.delete-btn').forEach(btn=>{
+      btn.onclick = ()=>deleteEntry(btn.getAttribute('data-id'), btn);
+    });
+  }
+
+  async function deleteEntry(id, btn){
     if(!confirm('Delete this response? This cannot be undone.')) return;
     btn.disabled = true;
     btn.textContent = '...';
     try{
       await db.collection('submissions').doc(id).delete();
-      const remaining = entries.filter(e => e.id !== id);
-      const row = btn.closest('.row-card');
-      if(row) row.remove();
-      renderDashStats(remaining);
-      const listArea = document.getElementById('list-area');
-      if(remaining.length===0 && listArea){
-        listArea.innerHTML = '<div class="empty">No responses yet. Once staff submit the sign-up form, they will appear here.</div>';
-      }
+      dashEntries = dashEntries.filter(e => e.id !== id);
+      renderDashStats();
+      renderDashList();
     }catch(e){
       alert('Could not delete this entry. Check that your Firestore rules allow delete.');
       btn.disabled = false;
