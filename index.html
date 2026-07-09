@@ -12,6 +12,14 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
+<!-- Google Identity Services — used instead of Firebase's signInWithPopup/
+     signInWithRedirect. Those both require a full navigation across domains
+     (your app's domain -> Google -> your Firebase authDomain -> back), which
+     Safari's Intelligent Tracking Prevention blocks. GIS issues an ID token
+     directly without that cross-domain hop, which we then hand to Firebase
+     via signInWithCredential. -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
 <style>
   :root{
     --bg:#FAFAFA;
@@ -327,6 +335,14 @@
 
   // Organizer dashboard passcode
   const ORG_CODE = "stagecall";
+
+  // ====== PASTE YOUR GOOGLE OAUTH WEB CLIENT ID HERE ======
+  // Find this in: Firebase Console → Authentication → Sign-in method →
+  // click "Google" in the providers list → expand "Web SDK configuration" →
+  // copy the "Web client ID" (ends in .apps.googleusercontent.com).
+  // This is NOT a new credential to create — Firebase already generated one
+  // for you when you enabled Google sign-in.
+  const GOOGLE_CLIENT_ID = "163567560084-rer9dlueunce8dcmru40lnd1l37k2nb9.apps.googleusercontent.com";
   // ================================================================
 
   firebase.initializeApp(firebaseConfig);
@@ -345,16 +361,29 @@
   let gateUnlocked = false;
   let dashEntries = [];
   let dashFilter = 'all'; // all | yes | no
-  let signInError = null; // set when redirect sign-in fails; shown once on the sign-in screen
+  let signInError = null; // set when sign-in fails; shown once on the sign-in screen
   let authResolved = false; // flips true the first time onAuthStateChanged fires
+  let gisInitialized = false;
+  let gisLoadAttempts = 0;
 
   const storageReady = firebaseConfig.apiKey !== "YOUR_API_KEY";
+  const gisReady = GOOGLE_CLIENT_ID !== "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com";
   if(!storageReady){
     app.innerHTML = `
       <div class="header">
         <p class="eyebrow">Setup needed</p>
         <h1 class="title">Staff Performance</h1>
         <p class="subtitle">This page hasn't been connected to Firebase yet. Paste your Firebase config into the script near the top of the HTML file and redeploy.</p>
+      </div>
+    `;
+    return;
+  }
+  if(!gisReady){
+    app.innerHTML = `
+      <div class="header">
+        <p class="eyebrow">Setup needed</p>
+        <h1 class="title">Staff Performance</h1>
+        <p class="subtitle">Google sign-in isn't fully configured yet. Paste your Google Web Client ID into the script near the top of the HTML file (see the comment above GOOGLE_CLIENT_ID) and redeploy.</p>
       </div>
     `;
     return;
@@ -427,69 +456,64 @@
       </div>
       <div class="card">
         ${errorHtml}
-        <button class="google-btn" id="signin-btn">
-          <svg class="google-icon" viewBox="0 0 48 48">
-            <path fill="#4F46E5" d="M24 9.5c3.4 0 6.4 1.2 8.8 3.5l6.5-6.5C35.3 2.7 30 0.5 24 0.5 14.9 0.5 7.1 5.7 3.3 13.3l7.6 5.9C12.7 13.1 17.9 9.5 24 9.5z" opacity="0.9"/>
-            <path fill="#4F46E5" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.6H24v9.1h12.7c-.6 3-2.3 5.5-4.9 7.2l7.5 5.8c4.4-4 6.9-10 6.9-17.5z" opacity="0.7"/>
-            <path fill="#4F46E5" d="M10.9 28.2c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.6-5.9C1.5 16.3 0.5 20 0.5 23.5s1 7.2 2.8 10.6l7.6-5.9z" opacity="0.5"/>
-            <path fill="#4F46E5" d="M24 47.5c6 0 11.3-2 15.1-5.3l-7.5-5.8c-2.1 1.4-4.7 2.2-7.6 2.2-6.1 0-11.3-3.6-13.1-8.7l-7.6 5.9C7.1 42.3 14.9 47.5 24 47.5z" opacity="0.35"/>
-          </svg>
-          Continue with Google
-        </button>
+        <div id="gis-button-container" style="display:flex;justify-content:center;min-height:44px;"></div>
         <p class="hint">Only ${escapeHtml(COMPANY_DOMAINS.join(' or '))} accounts can sign in.</p>
       </div>
     `;
-    document.getElementById('signin-btn').onclick = signIn;
+    mountGisButton();
   }
 
-  async function signIn(){
-    const btn = document.getElementById('signin-btn');
-    btn.disabled = true;
-    btn.textContent = 'Opening Google sign-in…';
-    const provider = new firebase.auth.GoogleAuthProvider();
-    // Note: Google's "hd" hint only supports one domain at a time, so with two
-    // allowed domains we skip the hint and rely on the check after sign-in below.
-    //
-    // We use signInWithPopup as the primary method. Redirect-based sign-in
-    // requires a full navigation away to accounts.google.com and back through
-    // the Firebase authDomain (a different origin from where this app is
-    // hosted on Vercel). Modern browsers (Safari ITP, Chrome storage
-    // partitioning, Firefox Total Cookie Protection) increasingly block the
-    // storage handoff that redirect needs to survive that cross-domain trip,
-    // which causes exactly the "bounces back to sign-in" symptom. Popup
-    // avoids this because the app page never navigates away.
-    try{
-      try{
-        await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-      }catch(persistErr){
-        console.warn('LOCAL persistence unavailable, falling back to SESSION:', persistErr);
-        await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
-      }
-      await auth.signInWithPopup(provider);
-      // onAuthStateChanged will fire and take it from here.
-    }catch(e){
-      console.error('signInWithPopup failed:', e);
-      if(e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')){
-        // Browser blocked the popup outright (rare, but some in-app browsers
-        // do this) — fall back to redirect as a last resort.
-        try{
-          await auth.signInWithRedirect(provider);
-          return;
-        }catch(e2){
-          console.error('Fallback signInWithRedirect also failed:', e2);
-          signInError = 'Sign-in failed to start. Please allow pop-ups for this site and try again.';
-        }
-      } else if(e && e.code === 'auth/popup-closed-by-user'){
-        // User closed the Google window themselves — not an error, just reset.
-        signInError = null;
-      } else if(e && e.code === 'auth/cancelled-popup-request'){
-        // Another sign-in attempt superseded this one — ignore silently.
-        view = 'signin';
-        render();
+  // Renders Google's own "Sign in with Google" button into the container.
+  // Called every time renderSignIn() runs, since app.innerHTML wipes the
+  // container out each time. Retries briefly if the GIS script (loaded with
+  // `defer` in <head>) hasn't finished loading yet.
+  function mountGisButton(){
+    const container = document.getElementById('gis-button-container');
+    if(!container) return;
+    if(typeof google === 'undefined' || !google.accounts || !google.accounts.id){
+      gisLoadAttempts++;
+      if(gisLoadAttempts > 20){ // ~6 seconds of retrying
+        container.innerHTML = '<p class="error" style="text-align:center;">Could not load Google Sign-In. Please check your internet connection and refresh. If you use an ad blocker or privacy extension, make sure accounts.google.com is allowed for this site.</p>';
         return;
-      } else {
-        signInError = 'Sign-in did not complete. Please try again.';
       }
+      setTimeout(mountGisButton, 300);
+      return;
+    }
+    gisLoadAttempts = 0;
+    if(!gisInitialized){
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGisCredential,
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+      gisInitialized = true;
+    }
+    container.innerHTML = '';
+    google.accounts.id.renderButton(container, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      shape: 'rectangular',
+      text: 'continue_with',
+      logo_alignment: 'center',
+      width: 320
+    });
+  }
+
+  // Called by Google Identity Services once the person picks an account.
+  // response.credential is a signed ID token — we hand it straight to
+  // Firebase to create the actual signed-in session. This is a direct
+  // network exchange, not a page navigation, so it isn't affected by
+  // Safari's cross-domain redirect/storage restrictions.
+  async function handleGisCredential(response){
+    try{
+      const credential = firebase.auth.GoogleAuthProvider.credential(response.credential);
+      await auth.signInWithCredential(credential);
+      // onAuthStateChanged fires next and takes it from here.
+    }catch(e){
+      console.error('signInWithCredential failed:', e);
+      signInError = 'Sign-in did not complete. Please try again.';
       view = 'signin';
       render();
     }
@@ -791,28 +815,16 @@
 
   // ---- Auth state ----
 
-  // Safety net: if neither getRedirectResult() nor onAuthStateChanged() ever
-  // settles (e.g. IndexedDB blocked by Safari, or the redirect handshake got
-  // dropped), don't leave the user staring at an endless spinner forever.
+  // Safety net: if onAuthStateChanged never settles on initial page load
+  // (e.g. Firebase failed to initialize, or a script got blocked), don't
+  // leave the user staring at an endless spinner forever.
   const stuckTimer = setTimeout(()=>{
     if(!authResolved && view === 'loading'){
-      signInError = 'Taking longer than expected to sign you in. Please try again — if this keeps happening on iPhone/iPad Safari, check that "Prevent Cross-Site Tracking" is off for this site in Settings → Safari, and that you\'re not in Private Browsing.';
+      signInError = 'Taking longer than expected to load. Please refresh the page. If this keeps happening, check your internet connection or try a different browser.';
       view = 'signin';
       render();
     }
   }, 8000);
-
-  auth.getRedirectResult().catch((error)=>{
-    console.error('Redirect sign-in error:', error);
-    authResolved = true;
-    clearTimeout(stuckTimer);
-    const msg = error && error.code === 'auth/account-exists-with-different-credential'
-      ? 'This email is already linked to a different sign-in method.'
-      : 'Sign-in did not complete. Please try again — if this keeps happening, try a different browser or disable "Prevent Cross-Site Tracking" in Safari settings for this site.';
-    signInError = msg;
-    view = 'signin';
-    render();
-  });
 
   auth.onAuthStateChanged(async (user)=>{
     authResolved = true;
