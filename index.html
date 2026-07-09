@@ -441,11 +441,14 @@
     const provider = new firebase.auth.GoogleAuthProvider();
     // Note: Google's "hd" hint only supports one domain at a time, so with two
     // allowed domains we skip the hint and rely on the check after sign-in below.
+    // Using redirect (not popup) — far more reliable on iOS Safari and mobile
+    // browsers in general, since popups are often blocked or interrupted there.
     try{
-      await auth.signInWithPopup(provider);
+      await auth.signInWithRedirect(provider);
+      // Page navigates away here; code below rarely runs.
     }catch(e){
       btn.disabled = false;
-      app.innerHTML += `<p class="error" style="text-align:center;margin-top:14px;">Sign-in failed or was cancelled. Please try again.</p>`;
+      app.innerHTML += `<p class="error" style="text-align:center;margin-top:14px;">Sign-in failed to start. Please try again.</p>`;
     }
   }
 
@@ -744,6 +747,16 @@
   }
 
   // ---- Auth state ----
+  auth.getRedirectResult().catch((error)=>{
+    console.error('Redirect sign-in error:', error);
+    view = 'signin';
+    render();
+    const msg = error && error.code === 'auth/account-exists-with-different-credential'
+      ? 'This email is already linked to a different sign-in method.'
+      : 'Sign-in did not complete. Please try again — if this keeps happening, try a different browser or disable "Prevent Cross-Site Tracking" in Safari settings for this site.';
+    app.innerHTML += `<p class="error" style="text-align:center;margin-top:14px;">${escapeHtml(msg)}</p>`;
+  });
+
   auth.onAuthStateChanged(async (user)=>{
     if(!user){
       currentUser = null;
