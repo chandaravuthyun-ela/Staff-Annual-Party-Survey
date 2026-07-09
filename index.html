@@ -3,327 +3,284 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Staff Performance — Staff Party Sign-Up</title>
+<title>Staff Performance — Sign-Up</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK (compat build — no build step needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <style>
-  html, body{height:100%;}
   :root{
-    --ink:#151022;
-    --curtain-1:#1c1230;
-    --curtain-2:#2a1240;
-    --velvet:#5c1730;
-    --velvet-light:#7a2440;
-    --gold:#f2b705;
-    --gold-dim:#c99a2e;
-    --cream:#f4ecd8;
-    --lilac:#b6a6c9;
-    --green:#3fae6a;
-    --red:#d84f4f;
-    --card:#241733;
-    --card-line:#3c2a52;
+    --bg:#FAFAFA;
+    --surface:#FFFFFF;
+    --border:#E7E7EA;
+    --border-strong:#D4D4D9;
+    --ink:#18181B;
+    --ink-soft:#52525B;
+    --muted:#A1A1AA;
+    --accent:#4F46E5;
+    --accent-hover:#4338CA;
+    --accent-soft:#EEF2FF;
+    --green:#16A34A;
+    --green-soft:#F0FDF4;
+    --red:#DC2626;
+    --red-soft:#FEF2F2;
+    --shadow-sm:0 1px 2px rgba(24,24,27,0.04);
+    --shadow-md:0 4px 16px rgba(24,24,27,0.07);
+    --shadow-lg:0 20px 45px -12px rgba(24,24,27,0.16);
+    --radius:14px;
   }
   *{box-sizing:border-box;}
-  body{margin:0;padding:0;background:transparent;}
+  html,body{height:100%;margin:0;}
+  body{background:transparent;}
   .app{
     min-height:100%;
-    background:
-      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(242,183,5,0.14), transparent 60%),
-      linear-gradient(180deg, var(--curtain-1), var(--curtain-2));
+    background:var(--bg);
     font-family:'Inter',sans-serif;
-    color:var(--cream);
-    padding:36px 18px 60px;
+    color:var(--ink);
+    padding:48px 20px 60px;
     display:flex;
     flex-direction:column;
     align-items:center;
-  }
-  .marquee{
-    text-align:center;
-    margin-bottom:30px;
-  }
-  .eyebrow{
-    font-family:'Bebas Neue',sans-serif;
-    letter-spacing:0.35em;
-    font-size:13px;
-    color:var(--gold);
-    margin:0 0 6px;
-  }
-  .title{
-    font-family:'Bebas Neue',sans-serif;
-    font-size:44px;
-    letter-spacing:0.03em;
-    margin:0;
-    line-height:1;
-    text-shadow:0 0 30px rgba(242,183,5,0.25);
-  }
-  .subtitle{
-    font-size:14px;
-    color:var(--lilac);
-    max-width:420px;
-    margin:12px auto 0;
-    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
   }
 
-  /* Ticket card */
-  .ticket{
-    position:relative;
+  /* Top bar (shown when signed in) */
+  .topbar{
     width:100%;
-    max-width:460px;
-    background:var(--card);
-    border:1px solid var(--card-line);
-    border-radius:18px;
-    padding:30px 26px 26px;
-    box-shadow:0 30px 60px -20px rgba(0,0,0,0.6);
+    max-width:480px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:28px;
+    font-size:13px;
+    color:var(--muted);
   }
-  .ticket::before,.ticket::after{
-    content:"";
-    position:absolute;
-    width:22px;height:22px;
-    background:var(--curtain-2);
-    border-radius:50%;
-    top:50%;
-    transform:translateY(-50%);
+  .topbar .who{display:flex;align-items:center;gap:8px;}
+  .avatar{
+    width:24px;height:24px;border-radius:50%;
+    background:var(--accent-soft);color:var(--accent);
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;
+    overflow:hidden;
   }
-  .ticket::before{left:-11px;}
-  .ticket::after{right:-11px;}
-  .perf-line{
-    border-top:2px dashed var(--card-line);
-    margin:22px -26px;
+  .avatar img{width:100%;height:100%;object-fit:cover;}
+  .signout-link{
+    background:none;border:none;color:var(--muted);
+    font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;
+    text-decoration:none;
   }
+  .signout-link:hover{color:var(--ink);}
+
+  .header{text-align:center;margin-bottom:28px;max-width:420px;}
+  .eyebrow{
+    font-size:12px;font-weight:600;letter-spacing:0.06em;
+    text-transform:uppercase;color:var(--accent);margin:0 0 8px;
+  }
+  .title{
+    font-size:28px;font-weight:800;letter-spacing:-0.02em;
+    margin:0 0 10px;line-height:1.2;color:var(--ink);
+  }
+  .subtitle{font-size:14.5px;color:var(--ink-soft);line-height:1.6;margin:0;}
+
+  /* Card */
+  .card{
+    width:100%;max-width:420px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:28px;
+    box-shadow:var(--shadow-md);
+  }
+
+  /* Google sign-in button */
+  .google-btn{
+    width:100%;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    padding:12px 0;
+    background:var(--surface);
+    border:1px solid var(--border-strong);
+    border-radius:10px;
+    font-family:'Inter',sans-serif;
+    font-size:14.5px;font-weight:600;color:var(--ink);
+    cursor:pointer;
+    transition:box-shadow .15s, border-color .15s;
+  }
+  .google-btn:hover{box-shadow:var(--shadow-sm);border-color:var(--muted);}
+  .google-icon{width:18px;height:18px;flex-shrink:0;}
 
   .field{margin-bottom:16px;}
   label{
-    display:block;
-    font-size:11px;
-    letter-spacing:0.12em;
-    text-transform:uppercase;
-    color:var(--lilac);
-    margin-bottom:6px;
-    font-weight:600;
+    display:block;font-size:12.5px;font-weight:600;
+    color:var(--ink-soft);margin-bottom:6px;
   }
   input[type=text], textarea{
     width:100%;
-    background:var(--ink);
-    border:1px solid var(--card-line);
-    border-radius:8px;
+    background:var(--surface);
+    border:1px solid var(--border-strong);
+    border-radius:9px;
     padding:11px 12px;
-    color:var(--cream);
+    color:var(--ink);
     font-family:'Inter',sans-serif;
     font-size:14.5px;
     outline:none;
-    transition:border-color .15s;
+    transition:border-color .15s, box-shadow .15s;
   }
   input[type=text]:focus, textarea:focus{
-    border-color:var(--gold);
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-soft);
   }
-  textarea{resize:vertical;min-height:70px;}
+  textarea{resize:vertical;min-height:66px;}
+  input:disabled{background:#F4F4F5;color:var(--muted);}
 
-  .toggle-row{display:flex;gap:10px;}
+  .toggle-row{display:flex;gap:8px;}
   .toggle-btn{
-    flex:1;
-    padding:13px 0;
+    flex:1;padding:11px 0;
     border-radius:9px;
-    border:1.5px solid var(--card-line);
-    background:var(--ink);
-    color:var(--lilac);
-    font-family:'Bebas Neue',sans-serif;
-    letter-spacing:0.08em;
-    font-size:16px;
+    border:1px solid var(--border-strong);
+    background:var(--surface);
+    color:var(--ink-soft);
+    font-family:'Inter',sans-serif;font-weight:600;font-size:14px;
     cursor:pointer;
     transition:all .15s;
   }
-  .toggle-btn:hover{border-color:var(--gold-dim);}
-  .toggle-btn.active-yes{background:var(--green);border-color:var(--green);color:#0c1f14;}
-  .toggle-btn.active-no{background:var(--red);border-color:var(--red);color:#2b0d0d;}
+  .toggle-btn:hover{border-color:var(--muted);}
+  .toggle-btn.active-yes{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .toggle-btn.active-no{background:#F4F4F5;border-color:var(--border-strong);color:var(--ink);}
 
   .activity-wrap{
-    max-height:0;
-    overflow:hidden;
-    opacity:0;
+    max-height:0;overflow:hidden;opacity:0;
     transition:max-height .3s ease, opacity .3s ease, margin .3s ease;
   }
-  .activity-wrap.open{
-    max-height:360px;
-    opacity:1;
-    margin-bottom:16px;
-  }
+  .activity-wrap.open{max-height:340px;opacity:1;margin-top:16px;}
 
   .submit-btn{
-    width:100%;
-    padding:14px 0;
-    border-radius:9px;
-    border:none;
-    background:var(--gold);
-    color:#241100;
-    font-family:'Bebas Neue',sans-serif;
-    font-size:19px;
-    letter-spacing:0.06em;
-    cursor:pointer;
-    margin-top:6px;
-    transition:transform .12s, box-shadow .12s;
+    width:100%;padding:13px 0;
+    border-radius:9px;border:none;
+    background:var(--accent);color:#fff;
+    font-family:'Inter',sans-serif;font-weight:600;font-size:14.5px;
+    cursor:pointer;margin-top:6px;
+    transition:background .15s;
   }
-  .submit-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px -6px rgba(242,183,5,0.5);}
-  .submit-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;box-shadow:none;}
+  .submit-btn:hover{background:var(--accent-hover);}
+  .submit-btn:disabled{opacity:0.5;cursor:not-allowed;}
 
-  .hint{font-size:12px;color:var(--lilac);margin-top:10px;text-align:center;line-height:1.5;}
-  .error{color:#ff9b9b;font-size:12.5px;margin-top:6px;}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:14px;text-align:center;line-height:1.5;}
+  .error{color:var(--red);font-size:12.5px;margin-top:6px;}
+  .error-box{
+    background:var(--red-soft);border:1px solid #FCA5A5;
+    color:#991B1B;font-size:13px;border-radius:9px;
+    padding:12px 14px;margin-bottom:16px;line-height:1.5;
+  }
 
-  /* Confirmation state */
-  .confirm{
-    text-align:center;
-    padding:10px 0 4px;
+  hr.div{border:none;border-top:1px solid var(--border);margin:20px 0;}
+
+  /* Confirmation */
+  .confirm-top{text-align:center;margin-bottom:20px;}
+  .status-pill{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12.5px;font-weight:600;
+    padding:6px 14px;border-radius:999px;margin-bottom:14px;
   }
-  .confirm .stamp{
-    display:inline-block;
-    font-family:'Bebas Neue',sans-serif;
-    font-size:15px;
-    letter-spacing:0.2em;
-    color:#0c1f14;
-    background:var(--green);
-    padding:6px 16px;
-    border-radius:999px;
-    margin-bottom:14px;
-    transform:rotate(-3deg);
-  }
-  .confirm .stamp.no{background:var(--lilac);color:var(--ink);}
-  .confirm h2{font-family:'Bebas Neue',sans-serif;font-size:26px;margin:0 0 8px;letter-spacing:0.02em;}
-  .confirm p{color:var(--lilac);font-size:13.5px;margin:0 0 18px;line-height:1.6;}
+  .status-pill.yes{background:var(--green-soft);color:var(--green);}
+  .status-pill.no{background:#F4F4F5;color:var(--ink-soft);}
+  .confirm-top h2{font-size:20px;font-weight:700;margin:0 0 6px;letter-spacing:-0.01em;}
+  .confirm-top p{font-size:13.5px;color:var(--ink-soft);margin:0;line-height:1.6;}
+
   .receipt{
-    text-align:left;
-    background:var(--ink);
-    border:1px solid var(--card-line);
-    border-radius:10px;
-    padding:14px 16px;
-    font-size:13.5px;
-    margin-bottom:18px;
+    background:#FAFAFA;border:1px solid var(--border);
+    border-radius:10px;padding:14px 16px;font-size:13.5px;margin-bottom:18px;
   }
-  .receipt div{display:flex;justify-content:space-between;padding:4px 0;gap:12px;}
-  .receipt span:first-child{color:var(--lilac);}
-  .receipt span:last-child{text-align:right;font-weight:600;}
-  .edit-btn{
-    background:none;
-    border:1px solid var(--card-line);
-    color:var(--cream);
-    padding:10px 0;
-    width:100%;
-    border-radius:9px;
-    font-family:'Inter',sans-serif;
-    font-size:13.5px;
-    cursor:pointer;
-  }
-  .edit-btn:hover{border-color:var(--gold-dim);}
+  .receipt div{display:flex;justify-content:space-between;gap:12px;padding:5px 0;}
+  .receipt div + div{border-top:1px solid var(--border);}
+  .receipt span:first-child{color:var(--muted);}
+  .receipt span:last-child{text-align:right;font-weight:600;max-width:65%;}
 
-  /* Footer link to dashboard */
-  .foot-link{
-    margin-top:22px;
-    font-size:12px;
-    color:var(--lilac);
-    opacity:0.7;
-    background:none;
-    border:none;
-    text-decoration:underline;
+  .edit-btn{
+    width:100%;padding:11px 0;
+    border-radius:9px;border:1px solid var(--border-strong);
+    background:var(--surface);color:var(--ink);
+    font-family:'Inter',sans-serif;font-size:13.5px;font-weight:600;
     cursor:pointer;
-    font-family:'Inter',sans-serif;
   }
-  .foot-link:hover{opacity:1;color:var(--gold);}
+  .edit-btn:hover{border-color:var(--muted);}
+
+  .foot-link{
+    margin-top:22px;font-size:12.5px;color:var(--muted);
+    background:none;border:none;text-decoration:underline;
+    cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  .foot-link:hover{color:var(--accent);}
 
   /* Dashboard */
   .dash{width:100%;max-width:640px;}
-  .dash-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px;}
-  .dash-head .title{font-size:32px;}
-  .back-link{background:none;border:none;color:var(--gold);font-size:12.5px;cursor:pointer;text-decoration:underline;font-family:'Inter',sans-serif;}
-  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px;}
+  .dash-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:8px;}
+  .dash-head .title{font-size:24px;margin:0;}
+  .back-link{background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;}
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
   .stat{
-    background:var(--card);
-    border:1px solid var(--card-line);
-    border-radius:12px;
-    padding:16px 10px;
-    text-align:center;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;padding:16px 10px;text-align:center;
   }
-  .stat .num{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--gold);line-height:1;}
-  .stat .lbl{font-size:11px;color:var(--lilac);letter-spacing:0.08em;text-transform:uppercase;margin-top:4px;}
+  .stat .num{font-size:26px;font-weight:800;color:var(--ink);line-height:1;letter-spacing:-0.02em;}
+  .stat .lbl{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:6px;}
   .list{display:flex;flex-direction:column;gap:10px;}
   .row-card{
-    background:var(--card);
-    border:1px solid var(--card-line);
-    border-radius:12px;
-    padding:14px 16px;
-    display:flex;
-    justify-content:space-between;
-    gap:14px;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;padding:14px 16px;
+    display:flex;justify-content:space-between;gap:14px;
   }
   .row-card .who{font-weight:600;font-size:14.5px;}
-  .row-card .dept{color:var(--lilac);font-size:12.5px;margin-top:2px;}
-  .row-card .act{font-size:13px;color:var(--cream);margin-top:6px;line-height:1.4;}
+  .row-card .dept{color:var(--muted);font-size:12.5px;margin-top:2px;}
+  .row-card .act{font-size:13px;color:var(--ink-soft);margin-top:8px;line-height:1.5;}
+  .row-card .equip{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.5;}
   .row-card .badge{
-    font-family:'Bebas Neue',sans-serif;
-    font-size:12px;
-    letter-spacing:0.08em;
-    padding:4px 10px;
-    border-radius:999px;
-    white-space:nowrap;
+    font-size:11.5px;font-weight:700;letter-spacing:0.02em;
+    padding:4px 10px;border-radius:999px;white-space:nowrap;
   }
-  .badge.yes{background:rgba(63,174,106,0.18);color:#6fe39a;}
-  .badge.no{background:rgba(182,166,201,0.15);color:var(--lilac);}
-  .row-card .equip{font-size:12px;color:var(--lilac);margin-top:4px;line-height:1.4;}
+  .badge.yes{background:var(--green-soft);color:var(--green);}
+  .badge.no{background:#F4F4F5;color:var(--ink-soft);}
   .row-actions{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;}
   .delete-btn{
-    background:none;
-    border:1px solid var(--card-line);
-    color:#ff9b9b;
-    font-size:11px;
-    padding:4px 10px;
-    border-radius:999px;
-    cursor:pointer;
-    font-family:'Inter',sans-serif;
-    white-space:nowrap;
+    background:none;border:1px solid var(--border-strong);color:var(--red);
+    font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;
+    cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;
   }
-  .delete-btn:hover{border-color:var(--red);background:rgba(216,79,79,0.12);}
+  .delete-btn:hover{border-color:var(--red);background:var(--red-soft);}
   .delete-btn:disabled{opacity:0.5;cursor:not-allowed;}
-  .empty{
-    text-align:center;
-    color:var(--lilac);
-    font-size:13.5px;
-    padding:40px 0;
-  }
+  .empty{text-align:center;color:var(--muted);font-size:13.5px;padding:48px 0;}
   .refresh-btn{
-    display:block;
-    margin:18px auto 0;
-    background:none;
-    border:1px solid var(--card-line);
-    color:var(--cream);
-    padding:9px 20px;
-    border-radius:999px;
-    font-size:12.5px;
-    cursor:pointer;
+    display:block;margin:20px auto 0;
+    background:none;border:1px solid var(--border-strong);color:var(--ink);
+    padding:9px 20px;border-radius:999px;font-size:12.5px;font-weight:600;
+    cursor:pointer;font-family:'Inter',sans-serif;
   }
-  .refresh-btn:hover{border-color:var(--gold-dim);}
-  .gate{
-    max-width:340px;
-    margin:0 auto;
-    text-align:center;
+  .refresh-btn:hover{border-color:var(--muted);}
+  .gate{max-width:340px;margin:0 auto;text-align:center;}
+  .gate p{color:var(--ink-soft);font-size:13.5px;margin-bottom:16px;line-height:1.5;}
+  .loading{text-align:center;color:var(--muted);font-size:13.5px;padding:60px 0;}
+  .spinner{
+    width:22px;height:22px;border-radius:50%;
+    border:2.5px solid var(--border);border-top-color:var(--accent);
+    animation:spin .8s linear infinite;margin:0 auto 14px;
   }
-  .gate p{color:var(--lilac);font-size:13px;margin-bottom:14px;}
-  .gate .submit-btn{margin-top:10px;}
-  .loading{text-align:center;color:var(--lilac);font-size:13px;padding:30px 0;}
+  @keyframes spin{to{transform:rotate(360deg);}}
 
   @media (max-width:420px){
-    .title{font-size:36px;}
-    .stat-row{grid-template-columns:repeat(3,1fr);gap:8px;}
-    .stat .num{font-size:26px;}
+    .title{font-size:24px;}
+    .card{padding:22px;}
   }
 </style>
-<!-- Firebase SDK (compat build — simplest for a plain HTML page, no build step needed) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
 <div class="app" id="app"></div>
 
 <script>
-  // ====== PASTE YOUR FIREBASE CONFIG HERE (Step 3 of the setup guide) ======
+  // ====== PASTE YOUR FIREBASE CONFIG HERE ======
   const firebaseConfig = {
     apiKey: "AIzaSyBWB7748Ji41hfTJX7GiZjVkDzoHb9dekA",
     authDomain: "staff-annual-party-survey.firebaseapp.com",
@@ -332,67 +289,164 @@
     messagingSenderId: "163567560084",
     appId: "1:163567560084:web:d143894bd77202e3051b81"
   };
-  // ===========================================================================
+
+  // ====== SET YOUR COMPANY EMAIL DOMAIN HERE (used to restrict sign-in) ======
+  const COMPANY_DOMAIN = "experteducation.com.au";
+
+  // Organizer dashboard passcode
+  const ORG_CODE = "stagecall";
+  // ================================================================
 
   firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
   const db = firebase.firestore();
 </script>
 
 <script>
 (function(){
   const app = document.getElementById('app');
-  let view = 'form'; // form | confirm | gate | dash
+  let view = 'loading'; // loading | signin | wrong-domain | form | confirm | gate | dash
+  let currentUser = null;
   let editingKey = null;
   let lastEntry = null;
   let volunteerChoice = null;
-  const ORG_CODE = 'stagecall';
   let gateUnlocked = false;
-  const storageReady = firebaseConfig.apiKey !== "YOUR_API_KEY";
 
+  const storageReady = firebaseConfig.apiKey !== "YOUR_API_KEY";
   if(!storageReady){
-    document.getElementById('app').innerHTML = `
-      <div class="marquee">
+    app.innerHTML = `
+      <div class="header">
         <p class="eyebrow">Setup needed</p>
-        <h1 class="title">STAFF PERFORMANCE</h1>
-        <p class="subtitle">This page hasn't been connected to Firebase yet. Paste your Firebase config into the script near the top of the HTML file (see the setup guide) and redeploy.</p>
+        <h1 class="title">Staff Performance</h1>
+        <p class="subtitle">This page hasn't been connected to Firebase yet. Paste your Firebase config into the script near the top of the HTML file and redeploy.</p>
       </div>
     `;
     return;
   }
 
-  function slugify(s){
-    return (s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+  function escapeHtml(s){
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+  function initials(name, email){
+    const src = (name || email || '').trim();
+    if(!src) return '?';
+    const parts = src.split(' ').filter(Boolean);
+    if(parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return src.slice(0,2).toUpperCase();
+  }
+
+  function topbarHtml(){
+    if(!currentUser) return '';
+    const photo = currentUser.photoURL
+      ? `<img src="${currentUser.photoURL}" alt="">`
+      : initials(currentUser.displayName, currentUser.email);
+    return `
+      <div class="topbar">
+        <div class="who">
+          <div class="avatar">${photo}</div>
+          <span>${escapeHtml(currentUser.email)}</span>
+        </div>
+        <button class="signout-link" id="signout-btn">Sign out</button>
+      </div>
+    `;
+  }
+
+  function bindTopbar(){
+    const btn = document.getElementById('signout-btn');
+    if(btn) btn.onclick = () => auth.signOut();
   }
 
   function render(){
-    if(view==='form') renderForm();
+    if(view==='loading') renderLoading();
+    else if(view==='signin') renderSignIn();
+    else if(view==='wrong-domain') renderWrongDomain();
+    else if(view==='form') renderForm();
     else if(view==='confirm') renderConfirm();
     else if(view==='gate') renderGate();
     else if(view==='dash') renderDash();
   }
 
-  function renderForm(){
+  function renderLoading(){
+    app.innerHTML = `<div class="loading"><div class="spinner"></div>Loading…</div>`;
+  }
+
+  function renderSignIn(){
     app.innerHTML = `
-      <div class="marquee">
+      <div class="header">
         <p class="eyebrow">Annual Staff Party</p>
-        <h1 class="title">STAFF PERFORMANCE</h1>
-        <p class="subtitle">Fancy a moment in the spotlight? Let us know if you're performing this year — sing, dance, joke, or wow us your way.</p>
+        <h1 class="title">Staff Performance Sign-Up</h1>
+        <p class="subtitle">Sign in with your work Google account to let us know if you'll be performing this year.</p>
       </div>
-      <div class="ticket">
+      <div class="card">
+        <button class="google-btn" id="signin-btn">
+          <svg class="google-icon" viewBox="0 0 48 48">
+            <path fill="#4F46E5" d="M24 9.5c3.4 0 6.4 1.2 8.8 3.5l6.5-6.5C35.3 2.7 30 0.5 24 0.5 14.9 0.5 7.1 5.7 3.3 13.3l7.6 5.9C12.7 13.1 17.9 9.5 24 9.5z" opacity="0.9"/>
+            <path fill="#4F46E5" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.6H24v9.1h12.7c-.6 3-2.3 5.5-4.9 7.2l7.5 5.8c4.4-4 6.9-10 6.9-17.5z" opacity="0.7"/>
+            <path fill="#4F46E5" d="M10.9 28.2c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.6-5.9C1.5 16.3 0.5 20 0.5 23.5s1 7.2 2.8 10.6l7.6-5.9z" opacity="0.5"/>
+            <path fill="#4F46E5" d="M24 47.5c6 0 11.3-2 15.1-5.3l-7.5-5.8c-2.1 1.4-4.7 2.2-7.6 2.2-6.1 0-11.3-3.6-13.1-8.7l-7.6 5.9C7.1 42.3 14.9 47.5 24 47.5z" opacity="0.35"/>
+          </svg>
+          Continue with Google
+        </button>
+        <p class="hint">Only ${escapeHtml(COMPANY_DOMAIN)} accounts can sign in.</p>
+      </div>
+    `;
+    document.getElementById('signin-btn').onclick = signIn;
+  }
+
+  async function signIn(){
+    const btn = document.getElementById('signin-btn');
+    btn.disabled = true;
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ hd: COMPANY_DOMAIN });
+    try{
+      await auth.signInWithPopup(provider);
+    }catch(e){
+      btn.disabled = false;
+      app.innerHTML += `<p class="error" style="text-align:center;margin-top:14px;">Sign-in failed or was cancelled. Please try again.</p>`;
+    }
+  }
+
+  function renderWrongDomain(){
+    app.innerHTML = `
+      <div class="header">
+        <p class="eyebrow">Access restricted</p>
+        <h1 class="title">Wrong account</h1>
+        <p class="subtitle">This form is only open to ${escapeHtml(COMPANY_DOMAIN)} accounts. You're signed in as ${escapeHtml(currentUser ? currentUser.email : '')}.</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <button class="google-btn" id="switch-btn">Sign in with a different account</button>
+      </div>
+    `;
+    document.getElementById('switch-btn').onclick = async ()=>{
+      await auth.signOut();
+    };
+  }
+
+  function renderForm(){
+    app.innerHTML = topbarHtml() + `
+      <div class="header">
+        <p class="eyebrow">Annual Staff Party</p>
+        <h1 class="title">Staff Performance</h1>
+        <p class="subtitle">Let us know if you'd like to perform this year — sing, dance, comedy, or anything else you'd like to share.</p>
+      </div>
+      <div class="card">
         <div class="field">
           <label for="f-name">Full name</label>
-          <input type="text" id="f-name" placeholder="e.g. Sophea Chan" value="${lastEntry?lastEntry.name:''}" />
+          <input type="text" id="f-name" placeholder="e.g. Sophea Chan" value="${lastEntry ? escapeHtml(lastEntry.name) : escapeHtml(currentUser.displayName||'')}" />
         </div>
         <div class="field">
           <label for="f-dept">Department</label>
-          <input type="text" id="f-dept" placeholder="e.g. Marketing" value="${lastEntry?lastEntry.department:''}" />
+          <input type="text" id="f-dept" placeholder="e.g. Marketing" value="${lastEntry ? escapeHtml(lastEntry.department) : ''}" />
         </div>
-        <div class="perf-line"></div>
+        <hr class="div">
         <div class="field">
           <label>Will you perform on stage?</label>
           <div class="toggle-row">
-            <button type="button" class="toggle-btn" id="btn-yes">YES</button>
-            <button type="button" class="toggle-btn" id="btn-no">NO</button>
+            <button type="button" class="toggle-btn" id="btn-yes">Yes</button>
+            <button type="button" class="toggle-btn" id="btn-no">No</button>
           </div>
         </div>
         <div class="activity-wrap" id="activity-wrap">
@@ -405,36 +459,32 @@
             <textarea id="f-equipment" placeholder="e.g. Wireless microphone, sound system, speaker">${lastEntry?lastEntry.equipment||'':''}</textarea>
           </div>
         </div>
-        <div class="field">
-          <label for="f-contact">Contact (email or ext.) — optional</label>
-          <input type="text" id="f-contact" placeholder="e.g. sophea@company.com" value="${lastEntry?lastEntry.contact||'':''}" />
-        </div>
         <div id="err" class="error" style="display:none;"></div>
         <button class="submit-btn" id="submit-btn">Reserve My Spot</button>
-        <p class="hint">Your answer is saved individually — no one else needs to fill this out at the same time as you.</p>
+        <p class="hint">Signed in as ${escapeHtml(currentUser.email)} — your response is saved to your account only.</p>
       </div>
       <button class="foot-link" id="dash-link">Organizer dashboard →</button>
     `;
+    bindTopbar();
 
-    if(volunteerChoice==='yes') setChoice('yes', false);
-    if(volunteerChoice==='no') setChoice('no', false);
+    if(volunteerChoice==='yes') setChoice('yes');
+    if(volunteerChoice==='no') setChoice('no');
 
-    document.getElementById('btn-yes').onclick = ()=>setChoice('yes', true);
-    document.getElementById('btn-no').onclick = ()=>setChoice('no', true);
+    document.getElementById('btn-yes').onclick = ()=>setChoice('yes');
+    document.getElementById('btn-no').onclick = ()=>setChoice('no');
     document.getElementById('submit-btn').onclick = submitForm;
     document.getElementById('dash-link').onclick = ()=>{ view = gateUnlocked ? 'dash' : 'gate'; render(); if(gateUnlocked) loadDash(); };
     updateSubmitLabel();
   }
 
-  function setChoice(choice, userInitiated){
+  function setChoice(choice){
     volunteerChoice = choice;
     const yesBtn = document.getElementById('btn-yes');
     const noBtn = document.getElementById('btn-no');
     const wrap = document.getElementById('activity-wrap');
     yesBtn.classList.toggle('active-yes', choice==='yes');
     noBtn.classList.toggle('active-no', choice==='no');
-    if(choice==='yes'){ wrap.classList.add('open'); }
-    else { wrap.classList.remove('open'); }
+    wrap.classList.toggle('open', choice==='yes');
     updateSubmitLabel();
   }
 
@@ -453,26 +503,25 @@
     const dept = document.getElementById('f-dept').value.trim();
     const activity = document.getElementById('f-activity').value.trim();
     const equipment = document.getElementById('f-equipment').value.trim();
-    const contact = document.getElementById('f-contact').value.trim();
     const errEl = document.getElementById('err');
     errEl.style.display = 'none';
 
     if(!name){ errEl.textContent = 'Please enter your full name.'; errEl.style.display='block'; return; }
     if(!dept){ errEl.textContent = 'Please enter your department.'; errEl.style.display='block'; return; }
-    if(!volunteerChoice){ errEl.textContent = 'Please choose YES or NO.'; errEl.style.display='block'; return; }
+    if(!volunteerChoice){ errEl.textContent = 'Please choose Yes or No.'; errEl.style.display='block'; return; }
     if(volunteerChoice==='yes' && !activity){ errEl.textContent = "Let us know what you'll perform."; errEl.style.display='block'; return; }
 
     const btn = document.getElementById('submit-btn');
     btn.disabled = true;
     btn.textContent = 'Saving...';
 
-    const key = editingKey || (slugify(name) + '-' + slugify(dept));
+    const key = currentUser.email;
     const entry = {
       name, department: dept,
       volunteer: volunteerChoice,
       activity: volunteerChoice==='yes' ? activity : '',
       equipment: volunteerChoice==='yes' ? equipment : '',
-      contact,
+      email: currentUser.email,
       timestamp: new Date().toISOString()
     };
 
@@ -493,16 +542,16 @@
   function renderConfirm(){
     const e = lastEntry;
     const isYes = e.volunteer === 'yes';
-    app.innerHTML = `
-      <div class="marquee">
+    app.innerHTML = topbarHtml() + `
+      <div class="header">
         <p class="eyebrow">Annual Staff Party</p>
-        <h1 class="title">STAFF PERFORMANCE</h1>
+        <h1 class="title">Staff Performance</h1>
       </div>
-      <div class="ticket">
-        <div class="confirm">
-          <span class="stamp ${isYes?'':'no'}">${isYes ? "YOU'RE ON THE LINE-UP" : 'RESPONSE RECORDED'}</span>
+      <div class="card">
+        <div class="confirm-top">
+          <span class="status-pill ${isYes?'yes':'no'}">${isYes ? '● Performing' : '○ Not performing'}</span>
           <h2>${isYes ? 'See you on stage!' : 'Thanks for letting us know'}</h2>
-          <p>${isYes ? 'Your slot is noted. The organizing committee will follow up with run-of-show details closer to the event.' : 'No worries — enjoy the party as our very appreciative audience.'}</p>
+          <p>${isYes ? "Your slot is noted. We'll follow up with run-of-show details closer to the event." : 'No worries — enjoy the party as our audience.'}</p>
         </div>
         <div class="receipt">
           <div><span>Name</span><span>${escapeHtml(e.name)}</span></div>
@@ -515,17 +564,18 @@
       </div>
       <button class="foot-link" id="dash-link">Organizer dashboard →</button>
     `;
+    bindTopbar();
     document.getElementById('edit-btn').onclick = ()=>{ volunteerChoice = e.volunteer; view='form'; render(); };
     document.getElementById('dash-link').onclick = ()=>{ view = gateUnlocked ? 'dash' : 'gate'; render(); if(gateUnlocked) loadDash(); };
   }
 
   function renderGate(){
-    app.innerHTML = `
-      <div class="marquee">
-        <p class="eyebrow">Organizer Access</p>
-        <h1 class="title">LINE-UP DASHBOARD</h1>
+    app.innerHTML = topbarHtml() + `
+      <div class="header">
+        <p class="eyebrow">Organizer access</p>
+        <h1 class="title">Dashboard</h1>
       </div>
-      <div class="ticket gate">
+      <div class="card gate">
         <p>Enter the organizer passcode to view all responses.</p>
         <div class="field">
           <input type="text" id="code" placeholder="Passcode" />
@@ -535,6 +585,7 @@
       </div>
       <button class="foot-link" id="back-btn">← Back to sign-up form</button>
     `;
+    bindTopbar();
     document.getElementById('unlock-btn').onclick = ()=>{
       const code = document.getElementById('code').value.trim();
       if(code === ORG_CODE){
@@ -550,10 +601,10 @@
   }
 
   function renderDash(){
-    app.innerHTML = `
+    app.innerHTML = topbarHtml() + `
       <div class="dash">
         <div class="dash-head">
-          <h1 class="title">LINE-UP DASHBOARD</h1>
+          <h1 class="title">Line-Up Dashboard</h1>
           <button class="back-link" id="back-btn">← Back to form</button>
         </div>
         <div class="stat-row" id="stat-row">
@@ -561,17 +612,17 @@
           <div class="stat"><div class="num">–</div><div class="lbl">Performing</div></div>
           <div class="stat"><div class="num">–</div><div class="lbl">Not performing</div></div>
         </div>
-        <div id="list-area"><div class="loading">Loading responses…</div></div>
+        <div id="list-area"><div class="loading"><div class="spinner"></div>Loading responses…</div></div>
         <button class="refresh-btn" id="refresh-btn">Refresh</button>
       </div>
     `;
+    bindTopbar();
     document.getElementById('back-btn').onclick = ()=>{ view = lastEntry ? 'confirm' : 'form'; render(); };
     document.getElementById('refresh-btn').onclick = loadDash;
   }
 
   async function loadDash(){
     const listArea = document.getElementById('list-area');
-    const statRow = document.getElementById('stat-row');
     if(!listArea) return;
     try{
       const snapshot = await db.collection('submissions').get();
@@ -588,9 +639,9 @@
         <div class="row-card">
           <div>
             <div class="who">${escapeHtml(e.name)}</div>
-            <div class="dept">${escapeHtml(e.department)}${e.contact ? ' · ' + escapeHtml(e.contact) : ''}</div>
-            ${e.volunteer==='yes' ? `<div class="act">🎤 ${escapeHtml(e.activity)}</div>` : ''}
-            ${e.volunteer==='yes' && e.equipment ? `<div class="equip">🎛️ ${escapeHtml(e.equipment)}</div>` : ''}
+            <div class="dept">${escapeHtml(e.department)} · ${escapeHtml(e.email||'')}</div>
+            ${e.volunteer==='yes' ? `<div class="act">${escapeHtml(e.activity)}</div>` : ''}
+            ${e.volunteer==='yes' && e.equipment ? `<div class="equip">Equipment: ${escapeHtml(e.equipment)}</div>` : ''}
           </div>
           <div class="row-actions">
             <span class="badge ${e.volunteer}">${e.volunteer==='yes'?'YES':'NO'}</span>
@@ -640,11 +691,36 @@
     }
   }
 
-  function escapeHtml(s){
-    const d = document.createElement('div');
-    d.textContent = s || '';
-    return d.innerHTML;
-  }
+  // ---- Auth state ----
+  auth.onAuthStateChanged(async (user)=>{
+    if(!user){
+      currentUser = null;
+      view = 'signin';
+      render();
+      return;
+    }
+    if(!user.email || !user.email.toLowerCase().endsWith('@' + COMPANY_DOMAIN.toLowerCase())){
+      currentUser = user;
+      view = 'wrong-domain';
+      render();
+      return;
+    }
+    currentUser = user;
+    editingKey = user.email;
+    try{
+      const docSnap = await db.collection('submissions').doc(user.email).get();
+      if(docSnap.exists){
+        lastEntry = docSnap.data();
+        volunteerChoice = lastEntry.volunteer;
+        view = 'confirm';
+      } else {
+        view = 'form';
+      }
+    }catch(e){
+      view = 'form';
+    }
+    render();
+  });
 
   render();
 })();
