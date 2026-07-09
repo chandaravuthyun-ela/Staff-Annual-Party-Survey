@@ -319,7 +319,7 @@
   };
 
   // ====== SET YOUR COMPANY EMAIL DOMAIN HERE (used to restrict sign-in) ======
-  const COMPANY_DOMAIN = "experteducation.com.au";
+  const COMPANY_DOMAINS = ["experteducation.com.au", "elacambodia.com"];
 
   // Event details shown to staff
   const EVENT_DATE_LABEL = "11 December 2026 · 5:00 PM – 9:00 PM";
@@ -429,7 +429,7 @@
           </svg>
           Continue with Google
         </button>
-        <p class="hint">Only ${escapeHtml(COMPANY_DOMAIN)} accounts can sign in.</p>
+        <p class="hint">Only ${escapeHtml(COMPANY_DOMAINS.join(' or '))} accounts can sign in.</p>
       </div>
     `;
     document.getElementById('signin-btn').onclick = signIn;
@@ -439,7 +439,8 @@
     const btn = document.getElementById('signin-btn');
     btn.disabled = true;
     const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ hd: COMPANY_DOMAIN });
+    // Note: Google's "hd" hint only supports one domain at a time, so with two
+    // allowed domains we skip the hint and rely on the check after sign-in below.
     try{
       await auth.signInWithPopup(provider);
     }catch(e){
@@ -453,7 +454,7 @@
       <div class="header">
         <p class="eyebrow">Access restricted</p>
         <h1 class="title">Wrong account</h1>
-        <p class="subtitle">This form is only open to ${escapeHtml(COMPANY_DOMAIN)} accounts. You're signed in as ${escapeHtml(currentUser ? currentUser.email : '')}.</p>
+        <p class="subtitle">This form is only open to ${escapeHtml(COMPANY_DOMAINS.join(' or '))} accounts. You're signed in as ${escapeHtml(currentUser ? currentUser.email : '')}.</p>
       </div>
       <div class="card" style="text-align:center;">
         <button class="google-btn" id="switch-btn">Sign in with a different account</button>
@@ -750,7 +751,8 @@
       render();
       return;
     }
-    if(!user.email || !user.email.toLowerCase().endsWith('@' + COMPANY_DOMAIN.toLowerCase())){
+    const emailOk = user.email && COMPANY_DOMAINS.some(d => user.email.toLowerCase().endsWith('@' + d.toLowerCase()));
+    if(!emailOk){
       currentUser = user;
       view = 'wrong-domain';
       render();
