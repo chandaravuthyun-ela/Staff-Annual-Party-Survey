@@ -445,30 +445,51 @@
   async function signIn(){
     const btn = document.getElementById('signin-btn');
     btn.disabled = true;
-    btn.textContent = 'Redirecting to Google…';
+    btn.textContent = 'Opening Google sign-in…';
     const provider = new firebase.auth.GoogleAuthProvider();
     // Note: Google's "hd" hint only supports one domain at a time, so with two
     // allowed domains we skip the hint and rely on the check after sign-in below.
-    // Using redirect (not popup) — far more reliable on iOS Safari and mobile
-    // browsers in general, since popups are often blocked or interrupted there.
+    //
+    // We use signInWithPopup as the primary method. Redirect-based sign-in
+    // requires a full navigation away to accounts.google.com and back through
+    // the Firebase authDomain (a different origin from where this app is
+    // hosted on Vercel). Modern browsers (Safari ITP, Chrome storage
+    // partitioning, Firefox Total Cookie Protection) increasingly block the
+    // storage handoff that redirect needs to survive that cross-domain trip,
+    // which causes exactly the "bounces back to sign-in" symptom. Popup
+    // avoids this because the app page never navigates away.
     try{
-      // Explicitly request LOCAL persistence, with a fallback to SESSION.
-      // Safari (Private Browsing, or "Prevent Cross-Site Tracking" in some
-      // configurations) can throw here because it restricts IndexedDB. If we
-      // don't catch this, the redirect can go out fine but never resolve
-      // when the browser comes back — which looks exactly like "stuck on
-      // Continue with Google".
       try{
         await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
       }catch(persistErr){
         console.warn('LOCAL persistence unavailable, falling back to SESSION:', persistErr);
         await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
       }
-      await auth.signInWithRedirect(provider);
-      // Page navigates away here; code below rarely runs.
+      await auth.signInWithPopup(provider);
+      // onAuthStateChanged will fire and take it from here.
     }catch(e){
-      console.error('signInWithRedirect failed to start:', e);
-      signInError = 'Sign-in failed to start. Please try again. If this keeps happening on iPhone/iPad, check Settings → Safari → and make sure "Prevent Cross-Site Tracking" is off for this site, and that you are not in Private Browsing.';
+      console.error('signInWithPopup failed:', e);
+      if(e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')){
+        // Browser blocked the popup outright (rare, but some in-app browsers
+        // do this) — fall back to redirect as a last resort.
+        try{
+          await auth.signInWithRedirect(provider);
+          return;
+        }catch(e2){
+          console.error('Fallback signInWithRedirect also failed:', e2);
+          signInError = 'Sign-in failed to start. Please allow pop-ups for this site and try again.';
+        }
+      } else if(e && e.code === 'auth/popup-closed-by-user'){
+        // User closed the Google window themselves — not an error, just reset.
+        signInError = null;
+      } else if(e && e.code === 'auth/cancelled-popup-request'){
+        // Another sign-in attempt superseded this one — ignore silently.
+        view = 'signin';
+        render();
+        return;
+      } else {
+        signInError = 'Sign-in did not complete. Please try again.';
+      }
       view = 'signin';
       render();
     }
